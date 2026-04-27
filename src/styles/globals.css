@@ -254,3 +254,59 @@ body {
   90% { opacity: 0.3; }
   100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
 }
+
+/* ── V2 READABILITY OVERRIDES ── */
+
+/* Force all display text to be heavier */
+.game-card { font-weight: 900 !important; }
+
+/* Character names on menu — much bigger */
+.char-name-big {
+  font-family: var(--font-display);
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.06em;
+}
+
+/* Mode card titles — bigger */
+.mode-title-big {
+  font-family: var(--font-display);
+  font-size: 17px !important;
+  font-weight: 900 !important;
+}
+
+/* Music click-to-start overlay */
+.music-start-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.music-start-box {
+  text-align: center;
+  padding: 48px 56px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(232,184,75,0.12), rgba(26,20,16,0.97));
+  border: 2px solid rgba(232,184,75,0.35);
+  animation: modal-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Opponent cards — larger overlap */
+.opp-hand-card { margin-left: -18px !important; }
+.opp-hand-card:first-child { margin-left: 0 !important; }
+
+/* Hand scroll — always center when few cards */
+.hand-row-center { justify-content: center; }
+
+/* Bigger btn text */
+.btn-primary, .btn-secondary {
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.1em !important;
+}

@@ -2,8 +2,6 @@
 import React from 'react';
 import { Card, CardSuit } from '@/lib/store';
 
-// ─── Suit Symbol SVGs ─────────────────────────────────────────────────────────
-
 function ManillaSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
@@ -17,9 +15,9 @@ function ManillaSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?
 function AmoleSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <rect x="6" y="4" width="8" height="24" rx="2" fill={color} opacity="0.9" />
-      <rect x="18" y="4" width="8" height="24" rx="2" fill={color} opacity="0.7" />
-      <rect x="12" y="8" width="8" height="16" rx="1" fill={color} opacity="0.5" />
+      <rect x="5" y="3" width="9" height="26" rx="2" fill={color} />
+      <rect x="18" y="3" width="9" height="26" rx="2" fill={color} opacity="0.75" />
+      <rect x="11" y="8" width="10" height="16" rx="1" fill={color} opacity="0.5" />
     </svg>
   );
 }
@@ -27,8 +25,7 @@ function AmoleSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: 
 function SpearheadSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <path d="M16 2 L26 12 L20 12 L20 30 L12 30 L12 12 L6 12 Z" fill={color} />
-      <path d="M16 2 L26 12 L20 12 L20 30 L12 30 L12 12 L6 12 Z" stroke={color} strokeWidth="1" fill="none" opacity="0.3" />
+      <path d="M16 1 L28 13 L21 13 L21 31 L11 31 L11 13 L4 13 Z" fill={color} />
     </svg>
   );
 }
@@ -36,14 +33,12 @@ function SpearheadSymbol({ size = 32, color = '#E8B84B' }: { size?: number; colo
 function BeadSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <line x1="16" y1="2" x2="16" y2="30" stroke={color} strokeWidth="1.5" opacity="0.4" />
-      <circle cx="16" cy="7" r="4" fill={color} />
-      <circle cx="16" cy="16" r="5" fill={color} opacity="0.85" />
-      <circle cx="16" cy="25" r="4" fill={color} opacity="0.7" />
-      <circle cx="8" cy="11" r="3" fill={color} opacity="0.6" />
-      <circle cx="24" cy="11" r="3" fill={color} opacity="0.6" />
-      <circle cx="8" cy="21" r="3" fill={color} opacity="0.5" />
-      <circle cx="24" cy="21" r="3" fill={color} opacity="0.5" />
+      <line x1="16" y1="2" x2="16" y2="30" stroke={color} strokeWidth="2" opacity="0.4" />
+      <circle cx="16" cy="6" r="5" fill={color} />
+      <circle cx="16" cy="16" r="6" fill={color} opacity="0.85" />
+      <circle cx="16" cy="26" r="5" fill={color} opacity="0.7" />
+      <circle cx="7" cy="11" r="4" fill={color} opacity="0.6" />
+      <circle cx="25" cy="11" r="4" fill={color} opacity="0.6" />
     </svg>
   );
 }
@@ -51,47 +46,38 @@ function BeadSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: s
 function CowrieSymbol({ size = 32, color = '#E8B84B' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <ellipse cx="16" cy="16" rx="10" ry="13" fill={color} opacity="0.15" stroke={color} strokeWidth="1.5" />
-      <ellipse cx="16" cy="16" rx="7" ry="10" fill={color} opacity="0.2" />
-      <path d="M9 16 Q10 12 16 11 Q22 12 23 16" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
-      <path d="M12 14 L12 18 M14 13 L14 19 M16 13 L16 19 M18 13 L18 19 M20 14 L20 18" stroke={color} strokeWidth="1" opacity="0.7" />
+      <ellipse cx="16" cy="16" rx="11" ry="14" fill={color} opacity="0.18" stroke={color} strokeWidth="2" />
+      <ellipse cx="16" cy="16" rx="7" ry="10" fill={color} opacity="0.25" />
+      <path d="M8 16 Q10 11 16 10 Q22 11 24 16" stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M11 13 L11 19 M14 12 L14 20 M16 12 L16 20 M18 12 L18 20 M21 13 L21 19" stroke={color} strokeWidth="1.5" opacity="0.8" />
     </svg>
   );
 }
 
-const SUIT_SYMBOLS = {
-  manilla: ManillaSymbol,
-  amole: AmoleSymbol,
-  spearhead: SpearheadSymbol,
-  bead: BeadSymbol,
-  cowrie: CowrieSymbol,
-};
+const SUIT_SYMBOLS = { manilla:ManillaSymbol, amole:AmoleSymbol, spearhead:SpearheadSymbol, bead:BeadSymbol, cowrie:CowrieSymbol };
 
-const SUIT_COLORS: Record<CardSuit, string> = {
-  manilla: '#E8B84B',
-  amole: '#14F195',
-  spearhead: '#FF6FD8',
-  bead: '#00C2FF',
-  cowrie: '#9945FF',
+export const SUIT_COLORS: Record<CardSuit, string> = {
+  manilla:'#E8B84B', amole:'#14F195', spearhead:'#FF6FD8', bead:'#00C2FF', cowrie:'#9945FF'
 };
 
 const SUIT_BG: Record<CardSuit, string> = {
-  manilla: 'linear-gradient(135deg, #3D2B00 0%, #1A1410 100%)',
-  amole: 'linear-gradient(135deg, #001A10 0%, #1A1410 100%)',
-  spearhead: 'linear-gradient(135deg, #2D0020 0%, #1A1410 100%)',
-  bead: 'linear-gradient(135deg, #001A2D 0%, #1A1410 100%)',
-  cowrie: 'linear-gradient(135deg, #1A0035 0%, #1A1410 100%)',
+  manilla:'linear-gradient(145deg, #3D2800 0%, #1A1410 100%)',
+  amole:'linear-gradient(145deg, #001F10 0%, #1A1410 100%)',
+  spearhead:'linear-gradient(145deg, #2D0022 0%, #1A1410 100%)',
+  bead:'linear-gradient(145deg, #001E30 0%, #1A1410 100%)',
+  cowrie:'linear-gradient(145deg, #1C0038 0%, #1A1410 100%)',
 };
 
 const SPECIAL_LABELS: Record<string, string> = {
-  pick2: 'PICK 2',
-  pick4: 'PICK 4',
-  general_market: 'MARKET',
-  hold_on: 'HOLD ON',
-  suspension: 'SUSPEND',
+  pick2:'PICK 2', pick4:'PICK 4', general_market:'MARKET', hold_on:'HOLD ON', suspension:'SUSPEND',
 };
 
-// ─── Card Component ───────────────────────────────────────────────────────────
+// SIZES: sm = opponent preview, md = hand cards on mobile, lg = main hand
+const DIMS = {
+  sm:  { w: 70,  h: 100, valSize: 14, symSize: 18, cornerSize: 12, cornerSym: 12, spSize: 8  },
+  md:  { w: 90,  h: 128, valSize: 18, symSize: 28, cornerSize: 14, cornerSym: 14, spSize: 9  },
+  lg:  { w: 115, h: 164, valSize: 24, symSize: 44, cornerSize: 17, cornerSym: 17, spSize: 11 },
+};
 
 interface GameCardProps {
   card: Card;
@@ -103,45 +89,23 @@ interface GameCardProps {
   dealDelay?: number;
 }
 
-export function GameCard({
-  card,
-  isSelected = false,
-  isPlayable = false,
-  isFaceDown = false,
-  size = 'md',
-  onClick,
-  dealDelay = 0,
-}: GameCardProps) {
-  const dims = { sm: { w: 64, h: 90 }, md: { w: 95, h: 133 }, lg: { w: 115, h: 162 } };
-  const { w, h } = dims[size];
+export function GameCard({ card, isSelected=false, isPlayable=false, isFaceDown=false, size='md', onClick, dealDelay=0 }: GameCardProps) {
+  const d = DIMS[size];
   const color = SUIT_COLORS[card.suit];
   const SuitSymbol = SUIT_SYMBOLS[card.suit];
+  const isWHOT = card.value === 'WHOT';
 
   if (isFaceDown) {
     return (
-      <div
-        style={{
-          width: w, height: h,
-          background: 'linear-gradient(135deg, #2C2218 0%, #1A1410 100%)',
-          border: '2px solid rgba(232,184,75,0.25)',
-          borderRadius: 12,
-          position: 'relative',
-          overflow: 'hidden',
-          flexShrink: 0,
-        }}
-      >
-        {/* Kente back pattern */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(232,184,75,0.06) 6px, rgba(232,184,75,0.06) 12px)',
-        }} />
-        <div style={{
-          position: 'absolute', inset: 4,
-          border: '1px solid rgba(232,184,75,0.15)',
-          borderRadius: 8,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <CowrieSymbol size={w * 0.4} color="rgba(232,184,75,0.3)" />
+      <div style={{
+        width:d.w, height:d.h, borderRadius:12, flexShrink:0,
+        background:'linear-gradient(145deg, #2C2218, #1A1410)',
+        border:'2px solid rgba(232,184,75,0.2)',
+        position:'relative', overflow:'hidden',
+      }}>
+        <div style={{ position:'absolute', inset:0, backgroundImage:'repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(232,184,75,0.05) 6px,rgba(232,184,75,0.05) 12px)' }} />
+        <div style={{ position:'absolute', inset:4, border:'1px solid rgba(232,184,75,0.12)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <CowrieSymbol size={d.w*0.4} color="rgba(232,184,75,0.25)" />
         </div>
       </div>
     );
@@ -149,74 +113,84 @@ export function GameCard({
 
   return (
     <div
-      className={`game-card ${isPlayable ? 'playable' : ''} ${isSelected ? 'selected' : ''}`}
-      style={{
-        width: w, height: h,
-        background: SUIT_BG[card.suit],
-        animationDelay: `${dealDelay}ms`,
-        flexShrink: 0,
-        fontFamily: 'var(--font-display)',
-      }}
       onClick={onClick}
+      className={`game-card${isPlayable?' playable':''}${isSelected?' selected':''}`}
+      style={{
+        width:d.w, height:d.h,
+        background: isWHOT ? 'linear-gradient(145deg, #1C0038, #0D0A08)' : SUIT_BG[card.suit],
+        borderRadius:12, border:`2.5px solid ${isSelected?'#FFD700':isPlayable?'#14F195':color+'44'}`,
+        position:'relative', overflow:'hidden', cursor: onClick?'pointer':'default',
+        flexShrink:0,
+        boxShadow: isSelected
+          ? `0 0 24px rgba(255,215,0,0.6), 0 12px 40px rgba(0,0,0,0.6)`
+          : isPlayable
+          ? `0 0 16px ${color}55, 0 8px 32px rgba(0,0,0,0.5)`
+          : `0 4px 20px rgba(0,0,0,0.5)`,
+        transform: isSelected ? 'translateY(-18px) scale(1.08)' : 'none',
+        transition:'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
+        animationDelay:`${dealDelay}ms`,
+      }}
     >
-      {/* Corner value top-left */}
-      <div style={{ position: 'absolute', top: 6, left: 8, lineHeight: 1 }}>
-        <div style={{ fontSize: size === 'sm' ? 10 : 13, fontWeight: 700, color, letterSpacing: '-0.02em' }}>
-          {card.value}
+      {/* Shine overlay */}
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%)', pointerEvents:'none', borderRadius:10 }} />
+
+      {/* TOP LEFT corner */}
+      <div style={{ position:'absolute', top:6, left:7, lineHeight:1 }}>
+        <div style={{ fontSize:d.cornerSize, fontWeight:900, color, fontFamily:'var(--font-display)', letterSpacing:'-0.02em', textShadow:`0 0 10px ${color}88` }}>
+          {isWHOT ? 'W' : card.value}
         </div>
-        <div style={{ marginTop: 2 }}>
-          <SuitSymbol size={size === 'sm' ? 10 : 14} color={color} />
+        <div style={{ marginTop:2 }}>
+          <SuitSymbol size={d.cornerSym} color={color} />
         </div>
       </div>
 
-      {/* Center symbol */}
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-      }}>
-        {card.value === 'WHOT' ? (
+      {/* CENTER */}
+      <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+        {isWHOT ? (
           <div style={{
-            fontSize: size === 'sm' ? 14 : size === 'md' ? 18 : 22,
-            fontWeight: 900, color: '#FFD700',
-            textShadow: '0 0 20px rgba(255,215,0,0.8)',
-            letterSpacing: '0.05em',
+            fontFamily:'var(--font-display)', fontSize:d.valSize+4, fontWeight:900,
+            color:'#FFD700', textShadow:'0 0 24px rgba(255,215,0,0.9)',
+            letterSpacing:'0.04em', textAlign:'center',
           }}>WHOT</div>
         ) : (
-          <SuitSymbol size={size === 'sm' ? 24 : size === 'md' ? 36 : 48} color={color} />
+          <>
+            <SuitSymbol size={d.symSize} color={color} />
+            <div style={{
+              fontFamily:'var(--font-display)', fontSize:d.valSize, fontWeight:900,
+              color, textShadow:`0 0 12px ${color}88`,
+              letterSpacing:'-0.01em', lineHeight:1,
+            }}>{card.value}</div>
+          </>
         )}
         {card.special && (
           <div style={{
-            fontSize: size === 'sm' ? 7 : 9,
-            color: '#FFD700',
-            letterSpacing: '0.1em',
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
-            textAlign: 'center',
+            fontFamily:'var(--font-display)', fontSize:d.spSize, fontWeight:900,
+            color:'#FFD700', letterSpacing:'0.08em', textAlign:'center',
+            background:'rgba(0,0,0,0.4)', padding:'2px 6px', borderRadius:4,
+            textShadow:'0 0 8px rgba(255,215,0,0.8)',
           }}>
             {SPECIAL_LABELS[card.special]}
           </div>
         )}
       </div>
 
-      {/* Corner value bottom-right (rotated) */}
-      <div style={{ position: 'absolute', bottom: 6, right: 8, transform: 'rotate(180deg)', lineHeight: 1 }}>
-        <div style={{ fontSize: size === 'sm' ? 10 : 13, fontWeight: 700, color, letterSpacing: '-0.02em' }}>
-          {card.value}
+      {/* BOTTOM RIGHT corner (rotated) */}
+      <div style={{ position:'absolute', bottom:6, right:7, transform:'rotate(180deg)', lineHeight:1 }}>
+        <div style={{ fontSize:d.cornerSize, fontWeight:900, color, fontFamily:'var(--font-display)', letterSpacing:'-0.02em' }}>
+          {isWHOT ? 'W' : card.value}
         </div>
-        <div style={{ marginTop: 2 }}>
-          <SuitSymbol size={size === 'sm' ? 10 : 14} color={color} />
+        <div style={{ marginTop:2 }}>
+          <SuitSymbol size={d.cornerSym} color={color} />
         </div>
       </div>
 
-      {/* Playable glow border */}
-      {isPlayable && (
+      {/* Playable pulse ring */}
+      {isPlayable && !isSelected && (
         <div style={{
-          position: 'absolute', inset: -2,
-          borderRadius: 14,
-          border: '2px solid rgba(20,241,149,0.8)',
-          pointerEvents: 'none',
-          animation: 'pulse-gold 1.5s ease-in-out infinite',
+          position:'absolute', inset:-2, borderRadius:14,
+          border:`2px solid ${color}`,
+          animation:'pulse-gold 1.4s ease-in-out infinite',
+          pointerEvents:'none',
         }} />
       )}
     </div>
@@ -226,35 +200,42 @@ export function GameCard({
 // ─── Suit Selector ────────────────────────────────────────────────────────────
 
 export function SuitSelector({ onSelect }: { onSelect: (suit: CardSuit) => void }) {
-  const suits: CardSuit[] = ['manilla', 'amole', 'spearhead', 'bead', 'cowrie'];
+  const suits: { suit: CardSuit; icon: string }[] = [
+    { suit:'manilla', icon:'🔩' },
+    { suit:'amole', icon:'📦' },
+    { suit:'spearhead', icon:'🏹' },
+    { suit:'bead', icon:'📿' },
+    { suit:'cowrie', icon:'🐚' },
+  ];
+
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-      padding: 24, background: 'rgba(26,20,16,0.95)',
-      borderRadius: 16, border: '1px solid rgba(232,184,75,0.3)',
-      boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+      padding:'28px 24px', borderRadius:20,
+      background:'linear-gradient(135deg, rgba(26,20,16,0.98), rgba(13,10,8,0.99))',
+      border:'2px solid rgba(232,184,75,0.35)',
+      boxShadow:'0 20px 60px rgba(0,0,0,0.9)',
+      textAlign:'center',
     }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: '#E8B84B', letterSpacing: '0.1em' }}>
+      <div style={{ fontFamily:'var(--font-display)', fontSize:16, fontWeight:900, color:'#E8B84B', letterSpacing:'0.12em', marginBottom:20 }}>
         CALL YOUR SUIT
       </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        {suits.map(suit => {
-          const Symbol = SUIT_SYMBOLS[suit];
-          const color = SUIT_COLORS[suit];
+      <div style={{ display:'flex', gap:12 }}>
+        {suits.map(({ suit, icon }) => {
+          const c = SUIT_COLORS[suit];
+          const Sym = SUIT_SYMBOLS[suit];
           return (
             <button key={suit} onClick={() => onSelect(suit)} style={{
-              width: 60, height: 60, borderRadius: 12,
-              background: SUIT_BG[suit],
-              border: `2px solid ${color}33`,
-              cursor: 'pointer', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 4,
-              transition: 'all 0.2s',
+              width:72, height:80, borderRadius:14,
+              background:SUIT_BG[suit], border:`2px solid ${c}44`,
+              cursor:'pointer', display:'flex', flexDirection:'column',
+              alignItems:'center', justifyContent:'center', gap:6,
+              transition:'all 0.2s',
             }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = color; (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = `${color}33`; (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor=c; (e.currentTarget as HTMLElement).style.transform='scale(1.12) translateY(-4px)'; (e.currentTarget as HTMLElement).style.boxShadow=`0 8px 24px ${c}44`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=`${c}44`; (e.currentTarget as HTMLElement).style.transform='scale(1)'; (e.currentTarget as HTMLElement).style.boxShadow='none'; }}
             >
-              <Symbol size={24} color={color} />
-              <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color, textTransform: 'uppercase' }}>
+              <Sym size={28} color={c} />
+              <span style={{ fontSize:9, fontFamily:'var(--font-display)', fontWeight:900, color:c, textTransform:'uppercase', letterSpacing:'0.06em' }}>
                 {suit}
               </span>
             </button>
@@ -265,4 +246,4 @@ export function SuitSelector({ onSelect }: { onSelect: (suit: CardSuit) => void 
   );
 }
 
-export { SUIT_COLORS, SUIT_SYMBOLS, ManillaSymbol, AmoleSymbol, SpearheadSymbol, BeadSymbol, CowrieSymbol };
+export { SUIT_SYMBOLS, ManillaSymbol, AmoleSymbol, SpearheadSymbol, BeadSymbol, CowrieSymbol };
