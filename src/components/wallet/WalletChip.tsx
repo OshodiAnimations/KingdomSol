@@ -49,7 +49,7 @@ export function WalletChip({ compact = false }: { compact?: boolean }) {
 // ─── Full Wallet Modal ────────────────────────────────────────────────────────
 
 export function WalletModal() {
-  const { wallet, showWalletModal, toggleWalletModal, connectWallet, disconnectWallet, stakeToken, stakeAmount, setStake, showTokenPicker, toggleTokenPicker } = useGameStore();
+  const { wallet, showWalletModal, toggleWalletModal, connectWallet, disconnectWallet, stakeToken, stakeAmount, setStake } = useGameStore();
   const [connectingTo, setConnectingTo] = useState<'phantom' | 'backpack' | null>(null);
 
   if (!showWalletModal) return null;
