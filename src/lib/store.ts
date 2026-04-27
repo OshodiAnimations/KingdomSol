@@ -403,18 +403,18 @@ export const useGameStore = create<GameState>()(
         const{profile}=get();
         const code=generateCode();
         const host:LobbyPlayer={id:'human',name:profile?.name||'Host',character:profile?.character||'okonkwo',ready:true,isHost:true};
-        set({inviteCode:code,multiMode,lobbyPlayers:[host],screen:'lobby'});
+        set({inviteCode:code.toUpperCase(),multiMode,lobbyPlayers:[host],screen:'lobby',gameMode:'multiplayer'});
       },
 
       joinWithCode:(code)=>{
         const{profile}=get();
         set({
-          inviteCode:code,
+          inviteCode:code.toUpperCase(),
           lobbyPlayers:[
             {id:'human',name:profile?.name||'You',character:profile?.character||'okonkwo',ready:true,isHost:false},
           ],
           screen:'lobby',
-          notification:{message:`Joined room ${code}!`,type:'success'}
+          gameMode:'multiplayer',notification:{message:`Joining room ${code.toUpperCase()}...`,type:'info'}
         });
       },
 
