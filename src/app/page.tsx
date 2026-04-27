@@ -1,6 +1,7 @@
 'use client';
 import { useGameStore } from '@/lib/store';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { NameSetupScreen } from '@/components/ui/NameSetupScreen';
 import { MenuScreen } from '@/components/ui/MenuScreen';
 import { GameBoard } from '@/components/game/GameBoard';
 import { ProfileScreen } from '@/components/ui/XPBar';
@@ -11,13 +12,14 @@ export default function Home() {
   const { screen, showWalletModal } = useGameStore();
 
   return (
-    <main style={{ minHeight: '100vh', position: 'relative' }}>
-      {screen === 'loading' && <LoadingScreen />}
-      {screen === 'menu' && <MenuScreen />}
-      {screen === 'board' && <GameBoard />}
-      {screen === 'profile' && <ProfileScreen />}
-      {screen === 'lobby' && <LobbyScreen />}
-      {showWalletModal && <WalletModal />}
+    <main style={{ minHeight:'100vh', position:'relative' }}>
+      {screen === 'loading'    && <LoadingScreen />}
+      {screen === 'name_setup' && <NameSetupScreen />}
+      {screen === 'menu'       && <MenuScreen />}
+      {screen === 'board'      && <GameBoard />}
+      {screen === 'profile'    && <ProfileScreen />}
+      {screen === 'lobby'      && <LobbyScreen />}
+      {showWalletModal         && <WalletModal />}
     </main>
   );
 }
