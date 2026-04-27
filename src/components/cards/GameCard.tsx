@@ -112,7 +112,7 @@ export function GameCard({
   onClick,
   dealDelay = 0,
 }: GameCardProps) {
-  const dims = { sm: { w: 56, h: 80 }, md: { w: 80, h: 112 }, lg: { w: 100, h: 140 } };
+  const dims = { sm: { w: 64, h: 90 }, md: { w: 95, h: 133 }, lg: { w: 115, h: 162 } };
   const { w, h } = dims[size];
   const color = SUIT_COLORS[card.suit];
   const SuitSymbol = SUIT_SYMBOLS[card.suit];

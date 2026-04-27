@@ -1,10 +1,10 @@
 'use client';
-import { useEffect } from 'react';
 import { useGameStore } from '@/lib/store';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { MenuScreen } from '@/components/ui/MenuScreen';
 import { GameBoard } from '@/components/game/GameBoard';
 import { ProfileScreen } from '@/components/ui/XPBar';
+import { LobbyScreen } from '@/components/ui/LobbyScreen';
 import { WalletModal } from '@/components/wallet/WalletChip';
 
 export default function Home() {
@@ -16,6 +16,7 @@ export default function Home() {
       {screen === 'menu' && <MenuScreen />}
       {screen === 'board' && <GameBoard />}
       {screen === 'profile' && <ProfileScreen />}
+      {screen === 'lobby' && <LobbyScreen />}
       {showWalletModal && <WalletModal />}
     </main>
   );
