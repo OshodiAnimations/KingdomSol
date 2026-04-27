@@ -1,0 +1,256 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --font-display: 'Cinzel Decorative', serif;
+  --font-body: 'Crimson Pro', serif;
+  --font-mono: 'Space Mono', monospace;
+
+  /* African-inspired palette */
+  --gold: #E8B84B;
+  --gold-bright: #FFD700;
+  --gold-deep: #B8860B;
+  --obsidian: #1A1410;
+  --obsidian-mid: #2C2218;
+  --clay: #8B4513;
+  --terracotta: #C1440E;
+  --indigo-africa: #2D1B69;
+  --forest-deep: #1B3A2D;
+  --sol-purple: #9945FF;
+  --sol-green: #14F195;
+  --sol-teal: #00C2FF;
+
+  /* Kente cloth colors */
+  --kente-red: #CC2200;
+  --kente-green: #006600;
+  --kente-yellow: #FFD700;
+  --kente-black: #1A1A1A;
+  --kente-blue: #003399;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--obsidian);
+  color: #F5E6C8;
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  margin: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--obsidian); }
+::-webkit-scrollbar-thumb { background: var(--gold-deep); border-radius: 3px; }
+
+/* African pattern overlay */
+.pattern-kente {
+  background-image: 
+    repeating-linear-gradient(90deg, transparent 0, transparent 18px, rgba(232,184,75,0.08) 18px, rgba(232,184,75,0.08) 20px),
+    repeating-linear-gradient(0deg, transparent 0, transparent 18px, rgba(232,184,75,0.08) 18px, rgba(232,184,75,0.08) 20px);
+}
+
+.pattern-adinkra {
+  background-image: radial-gradient(circle at 25% 25%, rgba(232,184,75,0.06) 0%, transparent 50%),
+                    radial-gradient(circle at 75% 75%, rgba(193,68,14,0.06) 0%, transparent 50%);
+}
+
+/* Card glow effects */
+.card-glow-gold { box-shadow: 0 0 20px rgba(232,184,75,0.4), 0 0 40px rgba(232,184,75,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+.card-glow-purple { box-shadow: 0 0 20px rgba(153,69,255,0.5), 0 0 40px rgba(153,69,255,0.2); }
+.card-glow-green { box-shadow: 0 0 20px rgba(20,241,149,0.4), 0 0 40px rgba(20,241,149,0.15); }
+
+/* Text effects */
+.text-gold-shimmer {
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold-bright), var(--gold), var(--gold-deep));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Game card base styles */
+.game-card {
+  border-radius: 12px;
+  border: 2px solid rgba(232,184,75,0.3);
+  background: linear-gradient(135deg, #2C2218 0%, #1A1410 50%, #2C1A0E 100%);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.game-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(232,184,75,0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.game-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 30px rgba(232,184,75,0.3);
+}
+
+.game-card.playable {
+  border-color: var(--sol-green);
+  box-shadow: 0 0 15px rgba(20,241,149,0.3);
+}
+
+.game-card.selected {
+  transform: translateY(-16px) scale(1.05);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 30px rgba(255,215,0,0.5);
+}
+
+/* XP Bar */
+.xp-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--sol-purple), var(--sol-green));
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Wallet chip */
+.wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(153,69,255,0.15);
+  border: 1px solid rgba(153,69,255,0.4);
+  border-radius: 100px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--sol-green);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.wallet-chip:hover {
+  background: rgba(153,69,255,0.25);
+  border-color: rgba(153,69,255,0.7);
+}
+
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%);
+  color: var(--obsidian);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 14px 32px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(232,184,75,0.3);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(232,184,75,0.5);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  padding: 13px 31px;
+  border-radius: 8px;
+  border: 1px solid rgba(232,184,75,0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary:hover {
+  background: rgba(232,184,75,0.08);
+  border-color: var(--gold);
+}
+
+/* Glass panel */
+.glass-panel {
+  background: rgba(26, 20, 16, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(232,184,75,0.15);
+  border-radius: 16px;
+}
+
+/* Solana gradient text */
+.text-solana {
+  background: linear-gradient(90deg, var(--sol-purple), var(--sol-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Timer pulse */
+.timer-danger {
+  animation: timer-pulse 0.5s ease-in-out infinite;
+  color: var(--kente-red);
+}
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Loading spinner */
+.cowry-spin {
+  animation: cowry-rotate 1s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+@keyframes cowry-rotate {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Card deal animation */
+.card-entering {
+  animation: card-deal 0.4s ease-out forwards;
+}
+@keyframes card-deal {
+  from { opacity: 0; transform: translateY(-80px) rotate(-8deg) scale(0.7); }
+  to { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+}
+
+/* Pile center glow */
+.pile-glow {
+  box-shadow: 0 0 60px rgba(232,184,75,0.15), 0 0 120px rgba(232,184,75,0.05);
+}
+
+/* Screen transitions */
+.screen-enter { animation: screen-in 0.5s ease-out forwards; }
+@keyframes screen-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Background particles float */
+.bg-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: float-particle linear infinite;
+}
+@keyframes float-particle {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.3; }
+  100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+}
