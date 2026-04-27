@@ -443,7 +443,7 @@ export function GameBoard() {
 }
 
 function WinModal({ winner, isHuman, stakeAmount, stakeToken, onClose, onPlayAgain }: {
-  winner: any; isHuman: boolean; stakeAmount: number; stakeToken: string; onClose:()=>void; onPlayAgain:()=>void;
+  winner: any; isHuman: boolean; stakeAmount: string; stakeToken: string; onClose:()=>void; onPlayAgain:()=>void;
 }) {
   const char = CHARACTERS.find(c => c.key === winner.character) || CHARACTERS[0];
   return (
@@ -461,7 +461,7 @@ function WinModal({ winner, isHuman, stakeAmount, stakeToken, onClose, onPlayAga
           {isHuman?'VICTORY!':'DEFEATED'}
         </div>
         <div style={{ fontFamily:'var(--font-body)', fontSize:16, color:'rgba(245,230,200,0.6)', marginBottom:24, lineHeight:1.5 }}>
-          {isHuman?`${winner.name} reigns supreme! +${(stakeAmount*2).toFixed(2)} ${stakeToken} earned`:`${winner.name} wins this round. Fight back harder!`}
+          {isHuman?`${winner.name} reigns supreme! +${(parseFloat(stakeAmount)*2).toFixed(2)} ${stakeToken} earned`:`${winner.name} wins this round. Fight back harder!`}
         </div>
         <div style={{ padding:'12px 20px', borderRadius:10, marginBottom:28, background:'rgba(153,69,255,0.12)', border:'1px solid rgba(153,69,255,0.3)', fontFamily:'var(--font-display)', fontSize:13, color:'#9945FF', fontWeight:700 }}>
           +{isHuman?100:20} XP · Level {winner.level}
