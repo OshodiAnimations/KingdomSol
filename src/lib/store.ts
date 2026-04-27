@@ -330,7 +330,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         selectedCardIds: [],
       });
       // Trigger bot after delay
-      setTimeout(() => get().botTurn?.(), 1200);
+      setTimeout(() => (get() as any).botTurn?.(), 1200);
     }
   },
 
@@ -339,7 +339,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (currentPlayerIndex !== humanPlayerIndex) return;
     const nextIndex = ((humanPlayerIndex + direction) + players.length) % players.length;
     set({ currentSuit: suit, currentPlayerIndex: nextIndex, notification: null });
-    setTimeout(() => get().botTurn?.(), 1200);
+    
   },
 
   drawCard: () => {
@@ -354,7 +354,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const nextIndex = ((humanPlayerIndex + direction) + playersCopy.length) % playersCopy.length;
 
     set({ players: playersCopy, deck: newDeck, pendingPick: 0, currentPlayerIndex: nextIndex, selectedCardIds: [] });
-    setTimeout(() => get().botTurn?.(), 1200);
+    
   },
 
   // Bot AI
