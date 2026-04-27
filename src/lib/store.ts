@@ -330,7 +330,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         selectedCardIds: [],
       });
       // Trigger bot after delay
-      setTimeout(() => (get() as any).botTurn?.(), 1200);
+      setTimeout(() => (get() as any).get().botTurn?.(), 1200);
     }
   },
 
@@ -397,7 +397,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Chain bot turns
       if (nextIndex !== humanPlayerIndex) {
-        setTimeout(() => get().botTurn?.(), 1000);
+        setTimeout(() => (get() as any).botTurn?.(), 1000);
       }
     }, 800 + Math.random() * 600);
   },
