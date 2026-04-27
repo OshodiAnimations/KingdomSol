@@ -226,7 +226,7 @@ export function WalletModal() {
                 <input
                   type="number"
                   value={stakeAmount}
-                  onChange={e => setStake(stakeToken, parseFloat(e.target.value) || 0)}
+                  onChange={e => setStake(stakeToken, e.target.value)}
                   step="0.1" min="0"
                   style={{
                     flex: 1, padding: '8px 12px', borderRadius: 6,
