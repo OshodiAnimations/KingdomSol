@@ -453,12 +453,20 @@ export const useGameStore = create<GameState>()(
       drawCard:()=>{
         const{deck,players,humanPlayerIndex,currentPlayerIndex,direction,pendingPick}=get();
         if(currentPlayerIndex!==humanPlayerIndex)return;
-        if(deck.length===0){set({notification:{message:'No cards left!',type:'error'}});return;}
+        // Auto-reshuffle: if deck is empty, create a fresh shuffled deck from played pile (keep top card)
+        let activeDeck = deck;
+        if (activeDeck.length < 2) {
+          const {pile} = get();
+          const topCard = pile[pile.length - 1];
+          const reshuffled = createDeck();
+          activeDeck = reshuffled;
+          set({ pile: topCard ? [topCard] : [], deck: reshuffled, notification: { message: '🔀 Deck reshuffled!', type: 'info' } });
+        }
         const count=pendingPick>0?pendingPick:1;
         const pc=players.map(p=>({...p,hand:[...p.hand]}));
-        pc[humanPlayerIndex].hand.push(...deck.slice(0,count));
+        pc[humanPlayerIndex].hand.push(...activeDeck.slice(0,count));
         const ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
-        set({players:pc,deck:deck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
+        set({players:pc,deck:activeDeck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
       },
 
@@ -491,8 +499,13 @@ export const useGameStore = create<GameState>()(
             set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,currentPlayerIndex:ni,pendingPick:np,lastPlayEvent:ev});
           }else{
             const count=ns.pendingPick>0?ns.pendingPick:1;
-            if(ns.deck.length>0)bc.hand.push(...ns.deck.slice(0,count));
-            set({players:pc,deck:ns.deck.slice(count),currentPlayerIndex:ni,pendingPick:0});
+            let botDeck = ns.deck;
+            if (botDeck.length < 2) {
+              botDeck = createDeck();
+              set({ pile: ns.pile.slice(-1), notification: { message: '🔀 Deck reshuffled!', type: 'info' } });
+            }
+            bc.hand.push(...botDeck.slice(0,count));
+            set({players:pc,deck:botDeck.slice(count),currentPlayerIndex:ni,pendingPick:0});
           }
           if(ni!==ns.humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1000);
         },800+Math.random()*600);

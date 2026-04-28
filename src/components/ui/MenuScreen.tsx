@@ -32,7 +32,7 @@ export function MenuScreen() {
   const [showStakeModal, setShowStakeModal] = useState(false);
   const [pendingMode, setPendingMode] = useState<GameMode | null>(null);
   const [myStakeAmount, setMyStakeAmount] = useState('0');
-  const [myStakeToken, setMyStakeToken] = useState<'KSL'|'SOL'>('KSL');
+  const [myStakeToken, setMyStakeToken] = useState<'KSL'|'SOL'|'USDC'>('KSL');
 
   const char = CHARACTERS.find(c => c.key === profile?.character) || CHARACTERS[0];
 
@@ -222,7 +222,7 @@ export function MenuScreen() {
 
             {/* Token selector */}
             <div style={{ display:'flex', gap:8, justifyContent:'center', marginBottom:14, flexWrap:'wrap' }}>
-              {(['KSL','SOL'] as const).map(t => (
+              {(['KSL','SOL','USDC'] as const).map(t => (
                 <button key={t} onClick={() => setMyStakeToken(t)} style={{
                   padding:'6px 16px', borderRadius:7, cursor:'pointer',
                   background:myStakeToken===t?'rgba(232,184,75,0.2)':'rgba(255,255,255,0.05)',

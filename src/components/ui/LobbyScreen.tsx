@@ -24,7 +24,7 @@ export function LobbyScreen() {
   const [error, setError] = useState('');
   const [showStakePhase, setShowStakePhase] = useState(false);
   const [myStakeAmount, setMyStakeAmount] = useState('0');
-  const [myStakeToken, setMyStakeToken] = useState<'KSL'|'SOL'>('KSL');
+  const [myStakeToken, setMyStakeToken] = useState<'KSL'|'SOL'|'USDC'>('KSL');
   const [stakeConfirmed, setStakeConfirmed] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const playerId = getPlayerId();
@@ -231,7 +231,7 @@ export function LobbyScreen() {
             {!stakeConfirmed ? (
               <>
                 <div style={{ display:'flex', gap:8, justifyContent:'center', marginBottom:12 }}>
-                  {(['KSL','SOL'] as const).map(t => (
+                  {(['KSL','SOL','USDC'] as const).map(t => (
                     <button key={t} onClick={() => setMyStakeToken(t)} style={{ padding:'6px 18px', borderRadius:7, cursor:'pointer', background:myStakeToken===t?'rgba(232,184,75,0.2)':'rgba(255,255,255,0.05)', border:`1.5px solid ${myStakeToken===t?'rgba(232,184,75,0.5)':'rgba(255,255,255,0.1)'}`, color:myStakeToken===t?'#E8B84B':'rgba(245,230,200,0.5)', fontFamily:'var(--font-display)', fontSize:13, fontWeight:900 }}>{t}</button>
                   ))}
                 </div>

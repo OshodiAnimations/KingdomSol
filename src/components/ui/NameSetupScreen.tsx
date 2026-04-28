@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useGameStore, CHARACTERS, CharacterKey } from '@/lib/store';
+import { WalletModal } from '@/components/wallet/WalletChip';
 
 export function NameSetupScreen() {
   const { createProfile, profile } = useGameStore();
@@ -9,6 +10,8 @@ export function NameSetupScreen() {
   const [error, setError] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
   const [createdName, setCreatedName] = useState('');
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const { wallet, toggleWalletModal, showWalletModal } = useGameStore();
 
   const handleCreate = () => {
     const trimmed = name.trim();
@@ -150,6 +153,33 @@ export function NameSetupScreen() {
       `}</style>
 
       {/* Welcome popup */}
+      {/* Wallet Connect Prompt — shown after profile created */}
+      {showWalletConnect && !wallet.connected && (
+        <div style={{ position:'fixed', inset:0, zIndex:1100, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.85)', backdropFilter:'blur(12px)', padding:24 }}>
+          <div style={{ maxWidth:420, width:'100%', padding:'40px 36px', borderRadius:22, textAlign:'center', background:'linear-gradient(135deg, rgba(153,69,255,0.12), rgba(26,20,16,0.98))', border:'2px solid rgba(153,69,255,0.35)', animation:'welcome-pop 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
+            <div style={{ fontSize:56, marginBottom:16 }}>🔐</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:20, fontWeight:900, color:'#9945FF', letterSpacing:'0.08em', marginBottom:8 }}>CONNECT YOUR WALLET</div>
+            <div style={{ fontFamily:'var(--font-body)', fontSize:14, color:'rgba(245,230,200,0.55)', marginBottom:24, lineHeight:1.6 }}>
+              Connect a Solana wallet to stake tokens and track your earnings. You can skip this and connect later.
+            </div>
+            <div style={{ marginBottom:12, padding:'10px 16px', borderRadius:10, background:'rgba(20,241,149,0.07)', border:'1px solid rgba(20,241,149,0.15)', fontFamily:'var(--font-body)', fontSize:12, color:'rgba(20,241,149,0.6)' }}>
+              🧪 On Devnet — get free SOL at <strong>faucet.solana.com</strong>
+            </div>
+            <div style={{ display:'flex', gap:10, marginTop:8 }}>
+              <button className="btn-secondary" style={{ flex:1, fontSize:12, padding:'12px', fontWeight:900, letterSpacing:'0.08em' }} onClick={() => setShowWalletConnect(false)}>
+                SKIP FOR NOW
+              </button>
+              <button className="btn-primary" style={{ flex:2, fontSize:13, padding:'12px', fontWeight:900, letterSpacing:'0.08em', background:'linear-gradient(135deg,#9945FF,#6B2FCC)' }}
+                onClick={() => { setShowWalletConnect(false); toggleWalletModal(); }}>
+                CONNECT WALLET ▶
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWalletModal && <WalletModal />}
+
       {showWelcome && (
         <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.85)', backdropFilter:'blur(12px)', padding:24 }}>
           <div style={{
@@ -188,7 +218,7 @@ export function NameSetupScreen() {
             <button
               className="btn-primary"
               style={{ width:'100%', fontSize:16, padding:'16px', letterSpacing:'0.12em', fontWeight:900, animation:'welcome-glow 2s ease-in-out infinite' }}
-              onClick={() => { setShowWelcome(false); createProfile(createdName, selectedChar); }}
+              onClick={() => { setShowWelcome(false); createProfile(createdName, selectedChar); if (!wallet.connected) { setShowWalletConnect(true); } }}
             >
               ENTER THE KINGDOM ⚔️
             </button>
