@@ -132,9 +132,9 @@ export function LobbyScreen() {
   };
 
   const share = () => {
-    const msg = `Join my KingdomSol ${modeInfo.label}!\nCode: ${inviteCode}\nLink: ${roomUrl}`;
-    if (navigator.share) navigator.share({ title:'KingdomSol', text:msg, url:roomUrl }).catch(()=>{});
-    else copyText(msg, 'share');
+    const msg = `Join my KingdomSol game!\nRoom code: ${inviteCode}\nMode: ${modeInfo.label}\n\nDownload & play at: kingdomsol.vercel.app`;
+    if (navigator.share) navigator.share({ title:'KingdomSol Game Invite', text:msg }).catch(()=>{});
+    else { navigator.clipboard.writeText(msg).catch(()=>{}); setCopied('share'); setTimeout(()=>setCopied(''),2500); }
   };
 
   if (connecting) return (
@@ -176,18 +176,16 @@ export function LobbyScreen() {
             <span style={{ fontFamily:'var(--font-display)', fontSize:10, fontWeight:900, color:'#14F195', letterSpacing:'0.2em' }}>LIVE · SUPABASE REALTIME</span>
           </div>
           <div style={{ fontFamily:'var(--font-display)', fontSize:48, fontWeight:900, color:'#9945FF', letterSpacing:'0.3em', textShadow:'0 0 30px rgba(153,69,255,0.6)', marginBottom:10 }}>{inviteCode}</div>
-          <div style={{ padding:'6px 10px', borderRadius:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', fontFamily:'var(--font-mono)', fontSize:10, color:'rgba(245,230,200,0.4)', marginBottom:10, wordBreak:'break-all' as const }}>{roomUrl}</div>
           <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' }}>
-            <button onClick={() => copyText(inviteCode!, 'code')} style={{ padding:'7px 14px', borderRadius:7, cursor:'pointer', background:copied==='code'?'rgba(20,241,149,0.15)':'rgba(153,69,255,0.15)', border:`1.5px solid ${copied==='code'?'rgba(20,241,149,0.5)':'rgba(153,69,255,0.4)'}`, color:copied==='code'?'#14F195':'#9945FF', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900 }}>{copied==='code'?'✓ COPIED':'📋 CODE'}</button>
-            <button onClick={() => copyText(roomUrl, 'link')} style={{ padding:'7px 14px', borderRadius:7, cursor:'pointer', background:'rgba(0,194,255,0.1)', border:'1.5px solid rgba(0,194,255,0.3)', color:'#00C2FF', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900 }}>{copied==='link'?'✓ COPIED':'🔗 LINK'}</button>
-            <button onClick={share} style={{ padding:'7px 14px', borderRadius:7, cursor:'pointer', background:'rgba(232,184,75,0.1)', border:'1.5px solid rgba(232,184,75,0.3)', color:'#E8B84B', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900 }}>📤 SHARE</button>
+            <button onClick={() => copyText(inviteCode!, 'code')} style={{ padding:'9px 20px', borderRadius:7, cursor:'pointer', background:copied==='code'?'rgba(20,241,149,0.15)':'rgba(153,69,255,0.15)', border:`1.5px solid ${copied==='code'?'rgba(20,241,149,0.5)':'rgba(153,69,255,0.4)'}`, color:copied==='code'?'#14F195':'#9945FF', fontFamily:'var(--font-display)', fontSize:12, fontWeight:900 }}>{copied==='code'?'✓ COPIED':'📋 COPY CODE'}</button>
+            <button onClick={share} style={{ padding:'9px 20px', borderRadius:7, cursor:'pointer', background:'rgba(232,184,75,0.1)', border:'1.5px solid rgba(232,184,75,0.3)', color:'#E8B84B', fontFamily:'var(--font-display)', fontSize:12, fontWeight:900 }}>{copied==='share'?'✓ COPIED':'📤 SHARE INVITE'}</button>
           </div>
         </div>
 
         {/* Players */}
         <div style={{ marginBottom:14 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'rgba(245,230,200,0.4)', letterSpacing:'0.18em' }}>PLAYERS ({roomPlayers.length}/5)</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'rgba(245,230,200,0.4)', letterSpacing:'0.18em' }}>PLAYERS ({roomPlayers.length}/6)</div>
             {!canStart && <div style={{ fontFamily:'var(--font-display)', fontSize:10, fontWeight:700, color:'rgba(255,180,50,0.7)' }}>⚠ Need 2+ to start</div>}
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>

@@ -218,7 +218,7 @@ export function NameSetupScreen() {
             <button
               className="btn-primary"
               style={{ width:'100%', fontSize:16, padding:'16px', letterSpacing:'0.12em', fontWeight:900, animation:'welcome-glow 2s ease-in-out infinite' }}
-              onClick={() => { setShowWelcome(false); createProfile(createdName, selectedChar); if (!wallet.connected) { setShowWalletConnect(true); } }}
+              onClick={() => { setShowWelcome(false); createProfile(createdName, selectedChar); if (!wallet.connected) { setTimeout(() => setShowWalletConnect(true), 3000); } }}
             >
               ENTER THE KINGDOM ⚔️
             </button>

@@ -171,13 +171,15 @@ export function GameBoard() {
         }}>← MENU</button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Stake */}
+          {/* Total stake pot */}
           <div style={{
             padding: '5px 12px', borderRadius: 8,
             background: 'rgba(153,69,255,0.12)', border: '1px solid rgba(153,69,255,0.3)',
             fontFamily: 'var(--font-display)', fontSize: 11, color: '#14F195', fontWeight: 700, letterSpacing: '0.05em',
+            display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            STAKE: {stakeAmount} {stakeToken}
+            <span style={{ color: 'rgba(245,230,200,0.5)' }}>POT:</span>
+            <span>{(parseFloat(stakeAmount) * players.length).toFixed(2)} {stakeToken}</span>
           </div>
 
           {/* Music toggle */}
@@ -390,20 +392,21 @@ export function GameBoard() {
         <div style={{
           display:'flex', gap:10, overflowX:'auto', paddingBottom:4,
           scrollbarWidth:'none', justifyContent: humanPlayer.hand.length < 6 ? 'center' : 'flex-start',
+          transition:'none',
         }}>
           {humanPlayer.hand.map((card, idx) => {
             const playable = isMyTurn && topCard
               ? (card.value==='WHOT' || card.suit===(currentSuit||topCard.suit) || card.value===topCard.value)
               : false;
             return (
-              <div key={card.id} className={idx<3?'card-entering':''} style={{ animationDelay:`${idx*60}ms`, flexShrink:0 }}>
+              <div key={card.id} style={{ flexShrink:0 }}>
                 <GameCard
                   card={card}
                   isSelected={selectedCardIds.includes(card.id)}
                   isPlayable={playable}
                   size="lg"
                   onClick={() => handleCardClick(card.id)}
-                  dealDelay={idx*60}
+
                 />
               </div>
             );

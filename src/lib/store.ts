@@ -31,6 +31,8 @@ export interface PlayerProfile {
   kslBalance: number;       // KingdomSol tokens
   kslSpent: number;         // total KSL spent on games
   multiplayerGamesPlayed: number;
+  avatarUrl: string | null;   // custom photo URL or null
+  avatarSymbol: string;       // emoji symbol fallback
 }
 
 export interface PlayerStake {
@@ -156,6 +158,7 @@ export interface GameState {
   toggleSfx: () => void;
   botTurn: () => void;
   updateLeaderboard: () => void;
+  setAvatar: (avatarUrl: string | null, avatarSymbol?: string) => void;
 }
 
 export const CHARACTERS: Character[] = [
@@ -240,7 +243,8 @@ export const useGameStore = create<GameState>()(
           name,character,gamesPlayed:0,gamesWon:0,xp:0,level:1,
           solEarned:0,cardsPlayed:0,winStreak:0,bestStreak:0,
           createdAt:Date.now(),kslBalance:KSL_STARTING_BALANCE,
-          kslSpent:0,multiplayerGamesPlayed:0
+          kslSpent:0,multiplayerGamesPlayed:0,
+          avatarUrl:null,avatarSymbol:'👑'
         };
         set({profile,screen:'menu'});
       },
@@ -315,6 +319,12 @@ export const useGameStore = create<GameState>()(
           }
         });
         get().updateLeaderboard();
+      },
+
+      setAvatar:(avatarUrl, avatarSymbol)=>{
+        const{profile}=get();
+        if(!profile)return;
+        set({profile:{...profile,avatarUrl:avatarUrl||null,avatarSymbol:avatarSymbol||profile.avatarSymbol}});
       },
 
       updateLeaderboard:()=>{

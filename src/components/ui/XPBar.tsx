@@ -29,6 +29,10 @@ export function XPBar({ xp, level, compact=false }: { xp:number; level:number; c
 export function ProfileScreen() {
   const { profile, wallet, setScreen, topUpKSL, withdrawKSL, notification } = useGameStore();
   const [showTopUp, setShowTopUp] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const { setAvatar } = useGameStore();
+
+  const STATIC_SYMBOLS = ['👑','⚔️','🛡️','📿','🔮','🦁','🐉','⚡','🌟','🔥','💎','🏆','🎯','🌍','🦅','🪬'];
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [topUpUSDC, setTopUpUSDC] = useState('5');
   const [withdrawKSLAmt, setWithdrawKSLAmt] = useState('100');
@@ -206,7 +210,16 @@ export function ProfileScreen() {
 
         {/* ── HERO CARD ── */}
         <div style={{ padding:'24px', borderRadius:20, marginBottom:16, background:`linear-gradient(135deg, ${char.accentColor}18 0%, rgba(26,20,16,0.95) 60%, ${char.color}18 100%)`, border:`2px solid ${char.accentColor}33`, display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
-          <div style={{ width:80, height:80, borderRadius:'50%', flexShrink:0, background:`radial-gradient(circle at 40% 35%, ${char.accentColor}55, ${char.color}88)`, border:`3px solid ${char.accentColor}77`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:40, boxShadow:`0 0 30px ${char.accentColor}33` }}>{char.icon}</div>
+          <div style={{ position:'relative', flexShrink:0 }}>
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="avatar" style={{ width:80, height:80, borderRadius:'50%', objectFit:'cover', border:`3px solid ${char.accentColor}77`, boxShadow:`0 0 30px ${char.accentColor}33` }} />
+            ) : (
+              <div style={{ width:80, height:80, borderRadius:'50%', background:`radial-gradient(circle at 40% 35%, ${char.accentColor}55, ${char.color}88)`, border:`3px solid ${char.accentColor}77`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:40, boxShadow:`0 0 30px ${char.accentColor}33` }}>
+                {profile.avatarSymbol || char.icon}
+              </div>
+            )}
+            <button onClick={() => setShowAvatarPicker(true)} style={{ position:'absolute', bottom:0, right:0, width:26, height:26, borderRadius:'50%', background:'rgba(26,20,16,0.95)', border:`1.5px solid ${char.accentColor}66`, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }} title="Change avatar">✏️</button>
+          </div>
           <div style={{ flex:1, minWidth:180 }}>
             <div style={{ fontFamily:'var(--font-display)', fontSize:24, fontWeight:900, color:char.accentColor, letterSpacing:'0.06em', marginBottom:3 }}>{profile.name}</div>
             <div style={{ fontFamily:'var(--font-body)', fontSize:13, color:'rgba(245,230,200,0.5)', marginBottom:12 }}>{char.title} · {char.origin} · {memberDays === 0 ? 'Joined today' : `${memberDays}d ago`}</div>
@@ -217,6 +230,40 @@ export function ProfileScreen() {
             <div style={{ fontFamily:'var(--font-mono)', fontSize:9, fontWeight:700, color:'rgba(245,230,200,0.35)', letterSpacing:'0.1em', marginTop:3 }}>LEVEL</div>
           </div>
         </div>
+
+        {/* ── AVATAR PICKER MODAL ── */}
+        {showAvatarPicker && (
+          <div style={{ position:'fixed', inset:0, zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.8)', backdropFilter:'blur(8px)' }}>
+            <div style={{ padding:'28px 24px', borderRadius:20, maxWidth:400, width:'90%', background:'linear-gradient(135deg,rgba(44,26,8,0.98),rgba(26,20,16,0.99))', border:'2px solid rgba(232,184,75,0.3)' }}>
+              <div style={{ fontFamily:'var(--font-display)', fontSize:14, fontWeight:900, color:'#E8B84B', letterSpacing:'0.1em', marginBottom:16, textAlign:'center' }}>CHOOSE YOUR AVATAR</div>
+
+              {/* Static symbols */}
+              <div style={{ fontFamily:'var(--font-display)', fontSize:10, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.15em', marginBottom:10 }}>CHOOSE A SYMBOL</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:20 }}>
+                {STATIC_SYMBOLS.map(sym => (
+                  <button key={sym} onClick={() => { setAvatar(null, sym); setShowAvatarPicker(false); }} style={{ width:48, height:48, borderRadius:10, fontSize:24, border:`2px solid ${profile.avatarSymbol===sym?'rgba(232,184,75,0.6)':'rgba(255,255,255,0.1)'}`, background:profile.avatarSymbol===sym?'rgba(232,184,75,0.12)':'rgba(255,255,255,0.04)', cursor:'pointer', transition:'all 0.15s' }}>
+                    {sym}
+                  </button>
+                ))}
+              </div>
+
+              {/* Photo upload */}
+              <div style={{ fontFamily:'var(--font-display)', fontSize:10, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.15em', marginBottom:10 }}>OR UPLOAD A PHOTO</div>
+              <label style={{ display:'block', padding:'12px', borderRadius:10, border:'1.5px dashed rgba(232,184,75,0.25)', background:'rgba(255,255,255,0.03)', cursor:'pointer', textAlign:'center', fontFamily:'var(--font-display)', fontSize:12, fontWeight:700, color:'rgba(245,230,200,0.5)', letterSpacing:'0.08em' }}>
+                📷 TAP TO UPLOAD PHOTO
+                <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (ev) => { setAvatar(ev.target?.result as string); setShowAvatarPicker(false); };
+                  reader.readAsDataURL(file);
+                }} />
+              </label>
+
+              <button className="btn-secondary" style={{ width:'100%', marginTop:14, fontSize:12, padding:'10px', fontWeight:900 }} onClick={() => setShowAvatarPicker(false)}>CANCEL</button>
+            </div>
+          </div>
+        )}
 
         {/* ── STATS GRID ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:16 }}>

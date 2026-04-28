@@ -30,6 +30,9 @@ export function MenuScreen() {
   const [showMultiPanel, setShowMultiPanel] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [showStakeModal, setShowStakeModal] = useState(false);
+  const [showWalletGate, setShowWalletGate] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const { wallet } = useGameStore();
   const [pendingMode, setPendingMode] = useState<GameMode | null>(null);
   const [myStakeAmount, setMyStakeAmount] = useState('0');
   const [myStakeToken, setMyStakeToken] = useState<'KSL'|'SOL'|'USDC'>('KSL');
@@ -43,11 +46,18 @@ export function MenuScreen() {
     musicEnabled ? audio.play().catch(() => {}) : audio.pause();
   }, [musicEnabled]);
 
+  const gateWithWallet = (action: () => void) => {
+    if (wallet.connected) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setShowWalletGate(true);
+    }
+  };
+
   const handlePlayMode = (mode: GameMode) => {
-    if (mode === 'multiplayer') return; // handled separately
-    // Show stake option for story/classic
-    setPendingMode(mode);
-    setShowStakeModal(true);
+    if (mode === 'multiplayer') return;
+    gateWithWallet(() => { setPendingMode(mode); setShowStakeModal(true); });
   };
 
   const handleConfirmStake = () => {
@@ -146,7 +156,7 @@ export function MenuScreen() {
                   <div style={{ fontFamily:'var(--font-display)', fontSize:12, fontWeight:900, color:accent, letterSpacing:'0.06em', marginBottom:4 }}>{label}</div>
                   <div style={{ fontFamily:'var(--font-body)', fontSize:11, color:'rgba(245,230,200,0.45)', marginBottom:12, lineHeight:1.4 }}>{desc}</div>
                   <button style={{ width:'100%', padding:'8px', borderRadius:7, border:'none', background:`linear-gradient(135deg,${accent},${accent}99)`, color:'#1A1410', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, cursor:'pointer', letterSpacing:'0.06em' }}
-                    onClick={() => generateInviteCode(key)}>CREATE ROOM</button>
+                    onClick={() => gateWithWallet(() => generateInviteCode(key))}>CREATE ROOM</button>
                 </div>
               ))}
             </div>
@@ -166,7 +176,7 @@ export function MenuScreen() {
             style={{ width:'100%', padding:'14px 16px', borderRadius:9, marginBottom:12, background:'rgba(255,255,255,0.06)', border:'1.5px solid rgba(153,69,255,0.35)', color:'#9945FF', fontFamily:'var(--font-display)', fontSize:22, fontWeight:900, outline:'none', letterSpacing:'0.25em', textAlign:'center', boxSizing:'border-box' as const }}
           />
           <button className="btn-primary" style={{ width:'100%', fontSize:13, padding:'13px', fontWeight:900, letterSpacing:'0.12em', background:'linear-gradient(135deg,#9945FF,#6B2FCC)' }}
-            onClick={() => { if(joinCode.length>=4) joinWithCode(joinCode); }}>
+            onClick={() => { if(joinCode.length>=4) gateWithWallet(() => joinWithCode(joinCode)); }}>
             JOIN ROOM ▶
           </button>
         </div>
@@ -208,6 +218,42 @@ export function MenuScreen() {
           </div>
         )}
       </div>
+
+      {/* WALLET GATE MODAL */}
+      {showWalletGate && (
+        <div style={{ position:'fixed', inset:0, zIndex:600, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.82)', backdropFilter:'blur(10px)', padding:24 }}>
+          <div style={{ maxWidth:420, width:'100%', padding:'40px 36px', borderRadius:22, textAlign:'center', background:'linear-gradient(135deg, rgba(153,69,255,0.14), rgba(26,20,16,0.98))', border:'2px solid rgba(153,69,255,0.35)', animation:'modal-pop 0.35s cubic-bezier(0.34,1.56,0.64,1)', boxSizing:'border-box' as const }}>
+            <div style={{ fontSize:56, marginBottom:16 }}>🔐</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:20, fontWeight:900, color:'#9945FF', letterSpacing:'0.08em', marginBottom:10 }}>
+              CONNECT YOUR WALLET
+            </div>
+            <div style={{ fontFamily:'var(--font-body)', fontSize:15, color:'rgba(245,230,200,0.6)', lineHeight:1.7, marginBottom:10 }}>
+              Connect a wallet to unlock the full KingdomSol experience.
+            </div>
+
+            {/* XP warning */}
+            <div style={{ padding:'12px 16px', borderRadius:10, marginBottom:24, background:'rgba(232,184,75,0.08)', border:'1px solid rgba(232,184,75,0.22)' }}>
+              <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'#E8B84B', letterSpacing:'0.1em', marginBottom:5 }}>
+                ⚠ IMPORTANT
+              </div>
+              <div style={{ fontFamily:'var(--font-body)', fontSize:13, color:'rgba(245,230,200,0.55)', lineHeight:1.5 }}>
+                Only players with a connected wallet can earn <strong style={{ color:'#E8B84B' }}>XP</strong>, accumulate <strong style={{ color:'#E8B84B' }}>KSL tokens</strong>, and appear on the <strong style={{ color:'#E8B84B' }}>leaderboard</strong>. Playing without a wallet means no rewards are saved.
+              </div>
+            </div>
+
+            <div style={{ display:'flex', gap:10 }}>
+              <button className="btn-secondary" style={{ flex:1, fontSize:12, padding:'13px', fontWeight:900, letterSpacing:'0.06em' }}
+                onClick={() => { setShowWalletGate(false); if (pendingAction) { pendingAction(); setPendingAction(null); } }}>
+                PLAY ANYWAY
+              </button>
+              <button className="btn-primary" style={{ flex:2, fontSize:13, padding:'13px', fontWeight:900, letterSpacing:'0.08em', background:'linear-gradient(135deg,#9945FF,#6B2FCC)' }}
+                onClick={() => { setShowWalletGate(false); setPendingAction(null); useGameStore.getState().toggleWalletModal(); }}>
+                CONNECT WALLET
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* STAKE MODAL for story/classic */}
       {showStakeModal && (
