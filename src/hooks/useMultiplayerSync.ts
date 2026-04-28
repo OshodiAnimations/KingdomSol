@@ -25,16 +25,8 @@ export function useMultiplayerSync() {
     // Don't apply if we're not in this game
     if (myIndex === -1) { applyingRef.current = false; return; }
 
-    // Don't apply our OWN moves (we already applied them locally)
-    const currentTurnPlayerId = shared.playerOrder[shared.currentPlayerIndex];
-    const prevTurnPlayerId = shared.playerOrder[
-      ((shared.currentPlayerIndex - 1) + shared.playerOrder.length) % shared.playerOrder.length
-    ];
-    // If we just played (prev turn was ours), skip — we already have this state
-    if (prevTurnPlayerId === myPlayerId && shared.pile.length > state.pile.length) {
-      applyingRef.current = false;
-      return;
-    }
+    // Always apply incoming state for multiplayer - ensures everyone stays in sync
+    // The deduplication via stateKey prevents redundant re-renders
 
     lastAppliedRef.current = stateKey;
 

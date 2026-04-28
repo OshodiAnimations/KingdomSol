@@ -502,11 +502,15 @@ export const useGameStore = create<GameState>()(
       },
 
       changeSuit:(suit)=>{
-        const{direction,players,humanPlayerIndex}=get();
+        const{direction,players,humanPlayerIndex,gameMode}=get();
         const ni=((humanPlayerIndex+direction)+players.length)%players.length;
         set({currentSuit:suit,currentPlayerIndex:ni,notification:null});
-        if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
-        else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
+        if(gameMode==='multiplayer'){
+          // In multiplayer: broadcast new state to all players
+          setTimeout(()=>broadcastIfMultiplayer(get),100);
+        } else if(ni!==humanPlayerIndex){
+          setTimeout(()=>get().botTurn(),1200);
+        }
       },
 
       drawCard:()=>{
