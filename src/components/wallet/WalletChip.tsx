@@ -117,6 +117,7 @@ export function WalletModal() {
             {[
               { provider: 'phantom' as const, name: 'Phantom', desc: 'The friendly Solana wallet', color: '#AB9FF2', icon: '👻' },
               { provider: 'backpack' as const, name: 'Backpack', desc: 'xNFT wallet by Coral', color: '#E33E3F', icon: '🎒' },
+              { provider: 'solflare' as const, name: 'Solflare', desc: 'Secure Solana wallet', color: '#FC8E02', icon: '🔥' },
             ].map(({ provider, name, desc, color, icon }) => (
               <button key={provider}
                 onClick={() => handleConnect(provider)}
