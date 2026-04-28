@@ -8,6 +8,7 @@ const TOKEN_INFO: Record<TokenSymbol, { name: string; icon: string; color: strin
   BONK: { name: 'Bonk', icon: '🐕', color: '#F7931A' },
   JUP: { name: 'Jupiter', icon: '⬡', color: '#16B674' },
   WIF: { name: 'dogwifhat', icon: '🎩', color: '#E8B84B' },
+  KSL: { name: 'KingdomSol', icon: '⚡', color: '#E8B84B' },
 };
 
 // ─── Wallet Chip (compact, used in nav) ──────────────────────────────────────
