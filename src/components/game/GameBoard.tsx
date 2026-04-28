@@ -1,4 +1,5 @@
 'use client';
+import { broadcastGameState, getPlayerId } from '@/lib/supabase';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameStore, CHARACTERS, CardSuit, SUIT_COLORS } from '@/lib/store';
 import { GameCard, SuitSelector } from '@/components/cards/GameCard';
@@ -475,3 +476,4 @@ function WinModal({ winner, isHuman, stakeAmount, stakeToken, onClose, onPlayAga
     </div>
   );
 }
+// placeholder

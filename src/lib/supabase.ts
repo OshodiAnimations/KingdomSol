@@ -11,12 +11,11 @@ export interface RoomRow {
   id: string;
   code: string;
   mode: string;
-  status: 'waiting' | 'stake_vote' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'finished';
   host_id: string;
   stake_token: string;
   stake_amount: string;
-  game_state: any;
-  created_at: string;
+  game_state: SharedGameState | null;
   updated_at: string;
 }
 
@@ -36,9 +35,48 @@ export interface GameMoveRow {
   id: number;
   room_code: string;
   player_id: string;
-  move_type: string;
+  move_type: 'play_card' | 'draw_card' | 'change_suit' | 'game_over';
   payload: any;
   created_at: string;
+}
+
+// The ONE shared game state stored in Supabase
+// Every player reads from this — nobody has their own version
+export interface SharedGameState {
+  // Shared between all players
+  pile: any[];           // cards played so far
+  topCard: any;          // current top card
+  currentSuit: string;   // active suit
+  currentPlayerIndex: number;
+  direction: 1 | -1;
+  pendingPick: number;
+  winner: string | null; // player_id of winner
+
+  // Each player's hand — stored by player_id
+  // e.g. { "p-abc123": [...cards], "p-xyz456": [...cards] }
+  hands: Record<string, any[]>;
+
+  // Player order — array of player_ids in turn order
+  playerOrder: string[];
+
+  // Deck (shared, only host manages drawing)
+  deck: any[];
+
+  multiMode: string;
+  stakeToken: string;
+  stakeAmount: string;
+}
+
+// ─── Player ID ────────────────────────────────────────────────────────────────
+
+export function getPlayerId(): string {
+  if (typeof window === 'undefined') return 'server';
+  let id = localStorage.getItem('kingdomsol-player-id');
+  if (!id) {
+    id = 'p-' + Math.random().toString(36).substr(2, 12);
+    localStorage.setItem('kingdomsol-player-id', id);
+  }
+  return id;
 }
 
 // ─── Room API ─────────────────────────────────────────────────────────────────
@@ -52,8 +90,10 @@ export async function createRoom(params: {
   stakeToken: string;
   stakeAmount: string;
 }): Promise<RoomRow | null> {
-  // Insert room
-  const { data: room, error: roomErr } = await supabase
+  // Delete any existing room with same code first
+  await supabase.from('rooms').delete().eq('code', params.code);
+
+  const { data, error } = await supabase
     .from('rooms')
     .insert({
       id: params.code,
@@ -63,15 +103,15 @@ export async function createRoom(params: {
       host_id: params.hostId,
       stake_token: params.stakeToken,
       stake_amount: params.stakeAmount,
-      game_state: {},
+      game_state: null,
     })
     .select()
     .single();
 
-  if (roomErr) { console.error('createRoom error:', roomErr); return null; }
+  if (error) { console.error('createRoom error:', error); return null; }
 
-  // Insert host as player
-  await supabase.from('room_players').insert({
+  // Add host as player
+  await supabase.from('room_players').upsert({
     id: `${params.code}-${params.hostId}`,
     room_code: params.code,
     player_id: params.hostId,
@@ -82,7 +122,7 @@ export async function createRoom(params: {
     hand: [],
   });
 
-  return room;
+  return data;
 }
 
 export async function joinRoom(params: {
@@ -91,7 +131,6 @@ export async function joinRoom(params: {
   playerName: string;
   characterKey: string;
 }): Promise<{ room: RoomRow | null; players: RoomPlayerRow[] }> {
-  // Get room
   const { data: room } = await supabase
     .from('rooms')
     .select('*')
@@ -99,29 +138,20 @@ export async function joinRoom(params: {
     .single();
 
   if (!room) return { room: null, players: [] };
+  if (room.status === 'finished') return { room: null, players: [] };
 
-  // Check if already in room
-  const { data: existing } = await supabase
-    .from('room_players')
-    .select('*')
-    .eq('room_code', params.code)
-    .eq('player_id', params.playerId)
-    .single();
+  // Add player (upsert in case reconnecting)
+  await supabase.from('room_players').upsert({
+    id: `${params.code}-${params.playerId}`,
+    room_code: params.code,
+    player_id: params.playerId,
+    player_name: params.playerName,
+    character_key: params.characterKey,
+    is_host: false,
+    is_ready: true,
+    hand: [],
+  });
 
-  if (!existing) {
-    await supabase.from('room_players').insert({
-      id: `${params.code}-${params.playerId}`,
-      room_code: params.code,
-      player_id: params.playerId,
-      player_name: params.playerName,
-      character_key: params.characterKey,
-      is_host: false,
-      is_ready: true,
-      hand: [],
-    });
-  }
-
-  // Get all players
   const { data: players } = await supabase
     .from('room_players')
     .select('*')
@@ -140,63 +170,108 @@ export async function getRoomPlayers(code: string): Promise<RoomPlayerRow[]> {
   return data || [];
 }
 
-export async function updateRoomStatus(code: string, status: RoomRow['status'], gameState?: any) {
-  const update: any = { status, updated_at: new Date().toISOString() };
-  if (gameState !== undefined) update.game_state = gameState;
-  await supabase.from('rooms').update(update).eq('code', code);
+export async function getRoom(code: string): Promise<RoomRow | null> {
+  const { data } = await supabase.from('rooms').select('*').eq('code', code).single();
+  return data;
 }
 
-export async function updateRoomStake(code: string, token: string, amount: string) {
-  await supabase.from('rooms').update({ stake_token: token, stake_amount: amount, updated_at: new Date().toISOString() }).eq('code', code);
+// Host calls this to start the game — creates ONE shared state for everyone
+export async function startSharedGame(params: {
+  code: string;
+  players: RoomPlayerRow[];
+  multiMode: string;
+  stakeToken: string;
+  stakeAmount: string;
+}): Promise<SharedGameState | null> {
+  // Build shared deck
+  const deck = buildSharedDeck();
+
+  // Deal cards to each player
+  const hands: Record<string, any[]> = {};
+  const isRaid = params.multiMode === 'raid';
+  const handSize = isRaid ? 3 : 6;
+  let remaining = deck;
+
+  for (const p of params.players) {
+    hands[p.player_id] = remaining.slice(0, handSize);
+    remaining = remaining.slice(handSize);
+  }
+
+  // First card on pile (non-special)
+  const nonSpecial = remaining.filter((c: any) => !c.special && c.value !== 'WHOT');
+  const startCard = nonSpecial[0];
+  remaining = remaining.filter((c: any) => c.id !== startCard.id);
+
+  const playerOrder = params.players.map(p => p.player_id);
+
+  const sharedState: SharedGameState = {
+    pile: [startCard],
+    topCard: startCard,
+    currentSuit: startCard.suit,
+    currentPlayerIndex: 0,
+    direction: 1,
+    pendingPick: 0,
+    winner: null,
+    hands,
+    playerOrder,
+    deck: remaining,
+    multiMode: params.multiMode,
+    stakeToken: params.stakeToken,
+    stakeAmount: params.stakeAmount,
+  };
+
+  // Save to Supabase — this triggers realtime update for all players
+  const { error } = await supabase
+    .from('rooms')
+    .update({
+      status: 'playing',
+      game_state: sharedState,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('code', params.code);
+
+  if (error) { console.error('startSharedGame error:', error); return null; }
+  return sharedState;
 }
 
-export async function broadcastMove(params: {
-  roomCode: string;
-  playerId: string;
-  moveType: string;
-  payload: any;
-}) {
-  await supabase.from('game_moves').insert({
-    room_code: params.roomCode,
-    player_id: params.playerId,
-    move_type: params.moveType,
-    payload: params.payload,
-  });
+// Broadcast a move — updates the shared game state in Supabase
+export async function broadcastGameState(code: string, state: SharedGameState) {
+  await supabase
+    .from('rooms')
+    .update({
+      game_state: state,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('code', code);
 }
 
-export async function updateGameState(code: string, gameState: any) {
-  await supabase.from('rooms').update({ game_state: gameState, updated_at: new Date().toISOString() }).eq('code', code);
+export async function markRoomFinished(code: string) {
+  await supabase.from('rooms').update({ status: 'finished', updated_at: new Date().toISOString() }).eq('code', code);
 }
 
 export async function leaveRoom(code: string, playerId: string) {
   await supabase.from('room_players').delete().eq('room_code', code).eq('player_id', playerId);
 }
 
-export async function cleanupRoom(code: string) {
-  await supabase.from('room_players').delete().eq('room_code', code);
-  await supabase.from('game_moves').delete().eq('room_code', code);
-  await supabase.from('rooms').delete().eq('code', code);
-}
-
-// ─── Realtime subscriptions ───────────────────────────────────────────────────
+// ─── Realtime ─────────────────────────────────────────────────────────────────
 
 export function subscribeToRoom(
   code: string,
   callbacks: {
     onPlayerJoin?: (player: RoomPlayerRow) => void;
     onPlayerLeave?: (playerId: string) => void;
-    onRoomUpdate?: (room: RoomRow) => void;
-    onMove?: (move: GameMoveRow) => void;
+    onGameStateUpdate?: (state: SharedGameState) => void;
+    onRoomStatusChange?: (status: string) => void;
   }
 ): RealtimeChannel {
   const channel = supabase
-    .channel(`room-${code}`)
+    .channel(`room:${code}`)
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',
       table: 'room_players',
       filter: `room_code=eq.${code}`,
-    }, (payload) => {
+    }, payload => {
       callbacks.onPlayerJoin?.(payload.new as RoomPlayerRow);
     })
     .on('postgres_changes', {
@@ -204,7 +279,7 @@ export function subscribeToRoom(
       schema: 'public',
       table: 'room_players',
       filter: `room_code=eq.${code}`,
-    }, (payload) => {
+    }, payload => {
       callbacks.onPlayerLeave?.((payload.old as any).player_id);
     })
     .on('postgres_changes', {
@@ -212,16 +287,12 @@ export function subscribeToRoom(
       schema: 'public',
       table: 'rooms',
       filter: `code=eq.${code}`,
-    }, (payload) => {
-      callbacks.onRoomUpdate?.(payload.new as RoomRow);
-    })
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'game_moves',
-      filter: `room_code=eq.${code}`,
-    }, (payload) => {
-      callbacks.onMove?.(payload.new as GameMoveRow);
+    }, payload => {
+      const room = payload.new as RoomRow;
+      if (room.game_state) {
+        callbacks.onGameStateUpdate?.(room.game_state as SharedGameState);
+      }
+      callbacks.onRoomStatusChange?.(room.status);
     })
     .subscribe();
 
@@ -232,14 +303,33 @@ export function unsubscribeFromRoom(channel: RealtimeChannel) {
   supabase.removeChannel(channel);
 }
 
-// ─── Player ID (persistent per browser) ──────────────────────────────────────
+// ─── Deck builder ─────────────────────────────────────────────────────────────
 
-export function getPlayerId(): string {
-  if (typeof window === 'undefined') return 'server';
-  let id = localStorage.getItem('kingdomsol-player-id');
-  if (!id) {
-    id = 'p-' + Math.random().toString(36).substr(2, 12);
-    localStorage.setItem('kingdomsol-player-id', id);
+function buildSharedDeck(): any[] {
+  const SUITS = ['manilla', 'amole', 'spearhead', 'bead', 'cowrie'];
+  const deck: any[] = [];
+  let id = 0;
+
+  for (const suit of SUITS) {
+    for (let v = 1; v <= 14; v++) {
+      let special = null;
+      if (v === 1) special = 'hold_on';
+      if (v === 2) special = 'pick2';
+      if (v === 5) special = 'pick4';
+      if (v === 14) special = 'general_market';
+      if (suit === 'cowrie' && v === 8) special = 'suspension';
+      deck.push({ id: `c${id++}`, suit, value: v.toString(), special });
+    }
   }
-  return id;
+  for (let i = 0; i < 5; i++) {
+    deck.push({ id: `w${i}`, suit: 'cowrie', value: 'WHOT', special: null });
+  }
+
+  // Shuffle
+  const a = [...deck];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
