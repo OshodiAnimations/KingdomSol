@@ -1,24 +1,84 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { useGameStore } from '@/lib/store';
+import { useGameStore, CHARACTERS } from '@/lib/store';
 import { supabase, getPlayerId, SharedGameState } from '@/lib/supabase';
-import { CHARACTERS } from '@/lib/store';
 import type { Card, CardSuit, Player } from '@/lib/store';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
-// This hook keeps multiplayer game state in sync with Supabase in real time
-// It runs inside GameBoard for multiplayer games only
 export function useMultiplayerSync() {
-  const { gameMode, inviteCode, players, humanPlayerIndex } = useGameStore();
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const playerId = getPlayerId();
+  const gameMode = useGameStore(s => s.gameMode);
+  const inviteCode = useGameStore(s => s.inviteCode);
+  const myPlayerIdRef = useRef(getPlayerId());
+  const lastPileLengthRef = useRef(0);
+  const lastTurnRef = useRef(-1);
 
+  // ─── Core function: apply incoming Supabase state correctly ───────────────
+  function applyIncomingState(shared: SharedGameState) {
+    const myPlayerId = myPlayerIdRef.current;
+    const state = useGameStore.getState();
+
+    // Find MY index in the player order — this NEVER changes
+    const myIndex = shared.playerOrder.indexOf(myPlayerId);
+    if (myIndex === -1) return; // not in this game
+
+    // Skip if nothing actually changed (avoid re-render loops)
+    if (
+      shared.pile.length === lastPileLengthRef.current &&
+      shared.currentPlayerIndex === lastTurnRef.current &&
+      !shared.winner
+    ) return;
+
+    lastPileLengthRef.current = shared.pile.length;
+    lastTurnRef.current = shared.currentPlayerIndex;
+
+    // Rebuild player list — each player ALWAYS sees themselves at humanPlayerIndex
+    const updatedPlayers: Player[] = shared.playerOrder.map((pid, idx) => {
+      const existing = state.players.find(p => p.id === pid);
+      const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
+      return {
+        id: pid,
+        name: existing?.name || `Player ${idx + 1}`,
+        avatar: existing?.avatar || char.icon,
+        character: existing?.character || char.key,
+        // Each player sees their OWN full hand, others are shown face-down in UI
+        hand: shared.hands[pid] || [],
+        xp: existing?.xp || 0,
+        level: existing?.level || 1,
+        solBalance: existing?.solBalance || 0,
+        isBot: false,
+        abilityUsed: existing?.abilityUsed || false,
+      };
+    });
+
+    const winner = shared.winner
+      ? updatedPlayers.find(p => p.id === shared.winner) || null
+      : null;
+
+    // KEY FIX: humanPlayerIndex is always MY index — never overwrite with 0
+    useGameStore.setState({
+      players: updatedPlayers,
+      pile: shared.pile as Card[],
+      topCard: shared.topCard as Card,
+      currentSuit: shared.currentSuit as CardSuit,
+      currentPlayerIndex: shared.currentPlayerIndex,
+      humanPlayerIndex: myIndex, // ← THIS is the critical fix
+      direction: shared.direction,
+      pendingPick: shared.pendingPick,
+      deck: shared.deck as Card[],
+      winner,
+      selectedCardIds: [], // clear any pending selection on state update
+    });
+
+    if (winner) {
+      setTimeout(() => useGameStore.setState(s => ({ ...s })), 200);
+    }
+  }
+
+  // ─── Realtime subscription ────────────────────────────────────────────────
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
-    // Subscribe to room updates during the game
-    channelRef.current = supabase
-      .channel(`game:${inviteCode}`)
+    const channel = supabase
+      .channel(`game-sync:${inviteCode}:${myPlayerIdRef.current}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -26,123 +86,44 @@ export function useMultiplayerSync() {
         filter: `code=eq.${inviteCode}`,
       }, (payload) => {
         const room = payload.new as any;
-        if (!room.game_state) return;
-
-        const shared = room.game_state as SharedGameState;
-        const state = useGameStore.getState();
-
-        // Don't apply if it's our own broadcast (we already have this state)
-        // Check by comparing currentPlayerIndex — if it just became our turn, apply
-        const myIdx = shared.playerOrder.indexOf(playerId);
-        if (myIdx === -1) return;
-
-        // Rebuild players from shared state
-        const currentPlayers = state.players;
-        const updatedPlayers: Player[] = shared.playerOrder.map((pid, idx) => {
-          const existing = currentPlayers.find(p => p.id === pid);
-          const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
-          const isMe = pid === playerId;
-          return {
-            id: pid,
-            name: existing?.name || `Player ${idx + 1}`,
-            avatar: existing?.avatar || char.icon,
-            character: existing?.character || char.key,
-            hand: isMe ? (shared.hands[pid] || []) : (shared.hands[pid] || []),
-            xp: existing?.xp || 0,
-            level: existing?.level || 1,
-            solBalance: existing?.solBalance || 0,
-            isBot: false,
-            abilityUsed: existing?.abilityUsed || false,
-          };
-        });
-
-        let winner = null;
-        if (shared.winner) {
-          winner = updatedPlayers.find(p => p.id === shared.winner) || null;
+        if (room?.game_state) {
+          applyIncomingState(room.game_state as SharedGameState);
         }
-
-        // Apply the incoming shared state
-        useGameStore.setState({
-          players: updatedPlayers,
-          pile: shared.pile as Card[],
-          topCard: shared.topCard as Card,
-          currentSuit: shared.currentSuit as CardSuit,
-          currentPlayerIndex: shared.currentPlayerIndex,
-          direction: shared.direction,
-          pendingPick: shared.pendingPick,
-          deck: shared.deck as Card[],
-          winner,
-        });
-
-        if (winner) {
-          setTimeout(() => {
-            useGameStore.setState({ screen: 'board' }); // triggers win modal
-          }, 100);
+        if (room?.status === 'finished') {
+          useGameStore.setState({ screen: 'menu' });
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Multiplayer] Realtime status:', status);
+      });
 
-    return () => {
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [gameMode, inviteCode]);
 
-  // Heartbeat: re-fetch game state every 5 seconds as a fallback
+  // ─── Heartbeat fallback every 4 seconds ──────────────────────────────────
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
     const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('rooms')
-        .select('game_state, status')
-        .eq('code', inviteCode)
-        .single();
+      try {
+        const { data } = await supabase
+          .from('rooms')
+          .select('game_state, status')
+          .eq('code', inviteCode)
+          .single();
 
-      if (!data || !data.game_state) return;
-      if (data.status === 'finished') {
-        useGameStore.setState({ screen: 'menu' });
-        return;
+        if (!data) return;
+        if (data.status === 'finished') {
+          useGameStore.setState({ screen: 'menu' });
+          return;
+        }
+        if (data.game_state) {
+          applyIncomingState(data.game_state as SharedGameState);
+        }
+      } catch (e) {
+        // Silent fail — realtime should cover this
       }
-
-      const shared = data.game_state as SharedGameState;
-      const state = useGameStore.getState();
-
-      // Only apply if something changed (compare currentPlayerIndex)
-      if (shared.currentPlayerIndex === state.currentPlayerIndex &&
-          shared.pile.length === state.pile.length) return;
-
-      const myIdx = shared.playerOrder.indexOf(playerId);
-      if (myIdx === -1) return;
-
-      const updatedPlayers: Player[] = shared.playerOrder.map((pid, idx) => {
-        const existing = state.players.find(p => p.id === pid);
-        const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
-        return {
-          id: pid,
-          name: existing?.name || `Player ${idx + 1}`,
-          avatar: existing?.avatar || char.icon,
-          character: existing?.character || char.key,
-          hand: shared.hands[pid] || [],
-          xp: existing?.xp || 0,
-          level: existing?.level || 1,
-          solBalance: existing?.solBalance || 0,
-          isBot: false,
-          abilityUsed: existing?.abilityUsed || false,
-        };
-      });
-
-      useGameStore.setState({
-        players: updatedPlayers,
-        pile: shared.pile as Card[],
-        topCard: shared.topCard as Card,
-        currentSuit: shared.currentSuit as CardSuit,
-        currentPlayerIndex: shared.currentPlayerIndex,
-        direction: shared.direction,
-        pendingPick: shared.pendingPick,
-        deck: shared.deck as Card[],
-        winner: shared.winner ? updatedPlayers.find(p => p.id === shared.winner) || null : null,
-      });
-    }, 5000); // Every 5 seconds fallback sync
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [gameMode, inviteCode]);
