@@ -46,7 +46,7 @@ export function LobbyScreen() {
       const rp = allPlayers.find(p => p.player_id === pid);
       const char = CHARACTERS.find(c => c.key === rp?.character_key) || CHARACTERS[0];
       return {
-        id: pid, name: rp?.player_name || `Player ${idx+1}`, avatar: char.icon,
+        id: pid, name: shared.playerNames?.[pid] || rp?.player_name || `Player ${idx+1}`, avatar: char.icon,
         character: char.key as any, hand: shared.hands[pid] || [],
         xp: 0, level: 1, solBalance: 0, isBot: false, abilityUsed: false,
       };

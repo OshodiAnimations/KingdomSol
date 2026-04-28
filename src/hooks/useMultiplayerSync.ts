@@ -43,7 +43,7 @@ export function useMultiplayerSync() {
       const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
       return {
         id: pid,
-        name: existing?.name || (shared as any).playerNames?.[pid] || `Player ${idx + 1}`,
+        name: shared.playerNames?.[pid] || existing?.name || `Player ${idx + 1}`,
         avatar: existing?.avatar || char.icon,
         character: existing?.character || char.key,
         hand: shared.hands[pid] || [],
