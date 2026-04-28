@@ -7,7 +7,7 @@ export type CardValue = '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'10'|'11'|'12'|'13'|
 export type GameMode = 'story' | 'multiplayer' | 'classic';
 export type MultiMode = 'war' | 'friendly' | 'raid';
 export type Screen = 'loading' | 'name_setup' | 'menu' | 'board' | 'profile' | 'lobby';
-export type TokenSymbol = 'SOL' | 'USDC' | 'BONK' | 'JUP' | 'WIF';
+export type TokenSymbol = 'SOL' | 'USDC' | 'BONK' | 'JUP' | 'WIF' | 'KSL';
 
 export interface Card {
   id: string;
@@ -28,6 +28,17 @@ export interface PlayerProfile {
   winStreak: number;
   bestStreak: number;
   createdAt: number;
+  kslBalance: number;       // KingdomSol tokens
+  kslSpent: number;         // total KSL spent on games
+  multiplayerGamesPlayed: number;
+}
+
+export interface PlayerStake {
+  playerId: string;
+  playerName: string;
+  token: TokenSymbol;
+  amount: string;
+  confirmed: boolean;
 }
 
 export interface Player {
@@ -41,6 +52,7 @@ export interface Player {
   solBalance: number;
   isBot: boolean;
   abilityUsed: boolean;
+  stake?: PlayerStake;
 }
 
 export type CharacterKey = 'okonkwo'|'amara'|'zara'|'kofi'|'nefertari';
@@ -69,18 +81,23 @@ export interface LobbyPlayer {
   character: CharacterKey;
   ready: boolean;
   isHost: boolean;
+  stake?: PlayerStake;
+}
+
+export interface LeaderboardEntry {
+  name: string;
+  character: CharacterKey;
+  xp: number;
+  level: number;
+  gamesWon: number;
+  winStreak: number;
 }
 
 export interface GameState {
-  // Navigation
   screen: Screen;
   gameMode: GameMode | null;
   multiMode: MultiMode | null;
-
-  // Player profile (persisted)
   profile: PlayerProfile | null;
-
-  // Active game
   players: Player[];
   currentPlayerIndex: number;
   humanPlayerIndex: number;
@@ -93,32 +110,26 @@ export interface GameState {
   isGameStarted: boolean;
   winner: Player | null;
   raidTimeLeft: number | null;
-
-  // Stake
+  playerStakes: PlayerStake[];
   stakeToken: TokenSymbol;
   stakeAmount: string;
-
-  // UI state
   selectedCardIds: string[];
   showWalletModal: boolean;
   notification: { message: string; type: 'info'|'success'|'error' } | null;
   lastPlayEvent: CardPlayEvent | null;
   musicEnabled: boolean;
   sfxEnabled: boolean;
-
-  // Multiplayer lobby
   inviteCode: string | null;
   lobbyPlayers: LobbyPlayer[];
-
-  // Wallet
+  leaderboard: LeaderboardEntry[];
   wallet: {
     connected: boolean;
     address: string | null;
     provider: 'phantom'|'backpack'|'solflare' | null;
-    balances: Record<TokenSymbol, number>;
+    balances: Record<string, number>;
+    kslBalance: number;
   };
 
-  // Actions
   setScreen: (s: Screen) => void;
   setGameMode: (m: GameMode) => void;
   setMultiMode: (m: MultiMode) => void;
@@ -129,7 +140,11 @@ export interface GameState {
   selectCard: (cardId: string) => void;
   changeSuit: (suit: CardSuit) => void;
   useAbility: () => void;
-  recordGameResult: (won: boolean, cardsPlayed: number, solChange: number) => void;
+  setPlayerStake: (stake: PlayerStake) => void;
+  confirmAllStakes: () => void;
+  recordGameResult: (won: boolean, cardsPlayed: number) => void;
+  topUpKSL: (usdcAmount: number) => void;
+  withdrawKSL: (kslAmount: number) => void;
   connectWallet: (provider: 'phantom'|'backpack'|'solflare') => void;
   disconnectWallet: () => void;
   setStake: (token: TokenSymbol, amount: string) => void;
@@ -137,23 +152,29 @@ export interface GameState {
   setNotification: (n: GameState['notification']) => void;
   generateInviteCode: (multiMode: MultiMode) => void;
   joinWithCode: (code: string) => void;
-  setLobbyReady: () => void;
   toggleMusic: () => void;
   toggleSfx: () => void;
   botTurn: () => void;
+  updateLeaderboard: () => void;
 }
 
 export const CHARACTERS: Character[] = [
   { key:'okonkwo', name:'Okonkwo', title:'The Merchant King', origin:'Igbo, West Africa', ability:'Trade Mastery', abilityDesc:'Play any 2 cards of the same value at once (once per game)', color:'#8B4513', accentColor:'#E8B84B', icon:'👑' },
   { key:'amara', name:'Amara', title:'The Oracle Queen', origin:'Mali Empire', ability:'Future Sight', abilityDesc:'Peek at the top 3 cards of the deck (once per game)', color:'#2D1B69', accentColor:'#9945FF', icon:'🔮' },
   { key:'zara', name:'Zara', title:'The Desert Fox', origin:'Carthage, North Africa', ability:'Evasion', abilityDesc:'Cancel one Pick-2 or Pick-4 directed at you (once per game)', color:'#C1440E', accentColor:'#FF6FD8', icon:'🦊' },
-  { key:'kofi', name:'Kofi', title:'The Gold Coast Lord', origin:'Ashanti Kingdom', ability:'Golden Touch', abilityDesc:'Win double SOL when going out with a WHOT card (once per game)', color:'#006600', accentColor:'#14F195', icon:'✨' },
-  { key:'nefertari', name:'Nefertari', title:"The Pharaoh's Heir", origin:'Ancient Egypt', ability:'Royal Decree', abilityDesc:'Change the active suit without a WHOT card (once per game)', color:'#1B3A2D', accentColor:'#00C2FF', icon:'🌟' },
+  { key:'kofi', name:'Kofi', title:'The Gold Coast Lord', origin:'Ashanti Kingdom', ability:'Golden Touch', abilityDesc:'Win double KSL when going out with a SOL CARD (once per game)', color:'#006600', accentColor:'#14F195', icon:'✨' },
+  { key:'nefertari', name:'Nefertari', title:"The Pharaoh's Heir", origin:'Ancient Egypt', ability:'Royal Decree', abilityDesc:'Change the active suit without a SOL CARD (once per game)', color:'#1B3A2D', accentColor:'#00C2FF', icon:'🌟' },
 ];
 
 export const SUIT_COLORS: Record<CardSuit, string> = {
   manilla:'#E8B84B', amole:'#14F195', spearhead:'#FF6FD8', bead:'#00C2FF', cowrie:'#9945FF'
 };
+
+// KSL token economics
+export const KSL_PER_USDC = 100; // $1 = 100 KSL
+export const KSL_PER_MULTIPLAYER_GAME = 25;
+export const KSL_STARTING_BALANCE = 100;
+export const KSL_USDC_RATE = 0.01; // 1 KSL = $0.01 USDC
 
 const SUITS: CardSuit[] = ['manilla','amole','spearhead','bead','cowrie'];
 
@@ -164,7 +185,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function createDeck(): Card[] {
-  const deck: Card[]=[];let id=0;
+  const deck:Card[]=[];let id=0;
   for(const suit of SUITS){
     for(let v=1;v<=14;v++){
       const value=v.toString() as CardValue;
@@ -194,20 +215,16 @@ function generateCode():string{
 export const useGameStore = create<GameState>()(
   persist(
     (set,get)=>({
-      screen:'loading',
-      gameMode:null,
-      multiMode:null,
-      profile:null,
-      players:[],
-      currentPlayerIndex:0,
-      humanPlayerIndex:0,
-      deck:[],pile:[],topCard:null,currentSuit:null,
-      pendingPick:0,direction:1,isGameStarted:false,winner:null,raidTimeLeft:null,
-      stakeToken:'SOL',stakeAmount:'0.1',
-      selectedCardIds:[],showWalletModal:false,notification:null,lastPlayEvent:null,
-      musicEnabled:true,sfxEnabled:true,
-      inviteCode:null,lobbyPlayers:[],
-      wallet:{connected:false,address:null,provider:null,balances:{SOL:0,USDC:0,BONK:0,JUP:0,WIF:0}},
+      screen:'loading', gameMode:null, multiMode:null, profile:null,
+      players:[], currentPlayerIndex:0, humanPlayerIndex:0,
+      deck:[], pile:[], topCard:null, currentSuit:null,
+      pendingPick:0, direction:1, isGameStarted:false, winner:null, raidTimeLeft:null,
+      playerStakes:[], stakeToken:'KSL', stakeAmount:'0',
+      selectedCardIds:[], showWalletModal:false, notification:null, lastPlayEvent:null,
+      musicEnabled:true, sfxEnabled:true,
+      inviteCode:null, lobbyPlayers:[],
+      leaderboard:[],
+      wallet:{connected:false,address:null,provider:null,balances:{SOL:0,USDC:0,BONK:0,JUP:0,WIF:0},kslBalance:0},
 
       setScreen:(screen)=>set({screen}),
       setGameMode:(gameMode)=>set({gameMode}),
@@ -221,31 +238,103 @@ export const useGameStore = create<GameState>()(
       createProfile:(name,character)=>{
         const profile:PlayerProfile={
           name,character,gamesPlayed:0,gamesWon:0,xp:0,level:1,
-          solEarned:0,cardsPlayed:0,winStreak:0,bestStreak:0,createdAt:Date.now()
+          solEarned:0,cardsPlayed:0,winStreak:0,bestStreak:0,
+          createdAt:Date.now(),kslBalance:KSL_STARTING_BALANCE,
+          kslSpent:0,multiplayerGamesPlayed:0
         };
         set({profile,screen:'menu'});
       },
 
-      recordGameResult:(won,cardsPlayed,solChange)=>{
-        const {profile}=get();
+      topUpKSL:(usdcAmount)=>{
+        const{profile,wallet}=get();
+        if(!profile)return;
+        const kslGained=usdcAmount*KSL_PER_USDC;
+        const newUSDC=(wallet.balances.USDC||0)-usdcAmount;
+        if(newUSDC<0){set({notification:{message:'Insufficient USDC balance',type:'error'}});return;}
+        set({
+          profile:{...profile,kslBalance:profile.kslBalance+kslGained},
+          wallet:{...wallet,balances:{...wallet.balances,USDC:parseFloat(newUSDC.toFixed(2))},kslBalance:wallet.kslBalance+kslGained},
+          notification:{message:`Topped up ${kslGained} KSL tokens!`,type:'success'}
+        });
+      },
+
+      withdrawKSL:(kslAmount)=>{
+        const{profile,wallet}=get();
+        if(!profile)return;
+        if(profile.kslBalance<kslAmount){set({notification:{message:'Insufficient KSL balance',type:'error'}});return;}
+        const usdcEquiv=kslAmount*KSL_USDC_RATE;
+        set({
+          profile:{...profile,kslBalance:profile.kslBalance-kslAmount},
+          wallet:{...wallet,balances:{...wallet.balances,USDC:parseFloat(((wallet.balances.USDC||0)+usdcEquiv).toFixed(2))},kslBalance:wallet.kslBalance-kslAmount},
+          notification:{message:`Withdrew ${kslAmount} KSL = $${usdcEquiv.toFixed(2)} USDC`,type:'success'}
+        });
+      },
+
+      setPlayerStake:(stake)=>{
+        const{playerStakes}=get();
+        const existing=playerStakes.findIndex(s=>s.playerId===stake.playerId);
+        if(existing>=0){
+          const updated=[...playerStakes];updated[existing]=stake;
+          set({playerStakes:updated});
+        }else{
+          set({playerStakes:[...playerStakes,stake]});
+        }
+      },
+
+      confirmAllStakes:()=>{
+        set(s=>({playerStakes:s.playerStakes.map(st=>({...st,confirmed:true}))}));
+      },
+
+      recordGameResult:(won,cardsPlayed)=>{
+        const{profile,gameMode,playerStakes,humanPlayerIndex,players}=get();
         if(!profile)return;
         const xpGain=won?100+cardsPlayed*3:20+cardsPlayed;
         const newXp=profile.xp+xpGain;
         const newStreak=won?profile.winStreak+1:0;
-        set({profile:{
-          ...profile,
-          gamesPlayed:profile.gamesPlayed+1,
-          gamesWon:profile.gamesWon+(won?1:0),
-          xp:newXp,level:levelFromXp(newXp),
-          solEarned:profile.solEarned+Math.max(0,solChange),
-          cardsPlayed:profile.cardsPlayed+cardsPlayed,
-          winStreak:newStreak,
-          bestStreak:Math.max(profile.bestStreak,newStreak),
-        }});
+        const myStake=playerStakes.find(s=>s.playerId==='human');
+        const stakeAmt=parseFloat(myStake?.amount||'0');
+
+        // For story/classic: XP gain on win, token loss on loss
+        let kslChange=0;
+        if(gameMode!=='multiplayer'){
+          if(won){kslChange=0;}// XP only
+          else if(stakeAmt>0&&myStake?.token==='KSL'){kslChange=-stakeAmt;}
+        }
+
+        set({
+          profile:{
+            ...profile,
+            gamesPlayed:profile.gamesPlayed+1,
+            gamesWon:profile.gamesWon+(won?1:0),
+            xp:newXp,level:levelFromXp(newXp),
+            cardsPlayed:profile.cardsPlayed+cardsPlayed,
+            winStreak:newStreak,
+            bestStreak:Math.max(profile.bestStreak,newStreak),
+            kslBalance:Math.max(0,profile.kslBalance+kslChange),
+            multiplayerGamesPlayed:profile.multiplayerGamesPlayed+(gameMode==='multiplayer'?1:0),
+          }
+        });
+        get().updateLeaderboard();
+      },
+
+      updateLeaderboard:()=>{
+        const{profile,leaderboard}=get();
+        if(!profile)return;
+        const entry:LeaderboardEntry={
+          name:profile.name,character:profile.character,
+          xp:profile.xp,level:levelFromXp(profile.xp),
+          gamesWon:profile.gamesWon,winStreak:profile.bestStreak
+        };
+        const existing=leaderboard.findIndex(e=>e.name===profile.name);
+        let updated=[...leaderboard];
+        if(existing>=0)updated[existing]=entry;
+        else updated.push(entry);
+        updated.sort((a,b)=>b.xp-a.xp);
+        set({leaderboard:updated.slice(0,20)});
       },
 
       initGame:(mode,multiMode)=>{
-        const {profile}=get();
+        const{profile,playerStakes,stakeAmount,stakeToken}=get();
         const charKey=profile?.character||'okonkwo';
         const char=CHARACTERS.find(c=>c.key===charKey)||CHARACTERS[0];
         const deck=createDeck();
@@ -256,20 +345,32 @@ export const useGameStore = create<GameState>()(
         let remaining=deck;
         const deal=(n:number)=>{const h=remaining.slice(0,n);remaining=remaining.slice(n);return h;};
 
+        // Player's stake
+        const playerStake:PlayerStake={playerId:'human',playerName:profile?.name||char.name,token:stakeToken,amount:stakeAmount,confirmed:true};
+
         players.push({
           id:'human',name:profile?.name||char.name,avatar:char.icon,
           character:charKey,hand:deal(handSize),xp:profile?.xp||0,
-          level:profile?.level||1,solBalance:4.2,isBot:false,abilityUsed:false
+          level:profile?.level||1,solBalance:4.2,isBot:false,abilityUsed:false,
+          stake:playerStake,
         });
 
         for(let i=0;i<numBots;i++){
           const bc=CHARACTERS[(i+1)%CHARACTERS.length];
-          players.push({id:`bot${i}`,name:['Eze','Yaa','Kwame','Fatima'][i]||`Bot${i}`,avatar:bc.icon,character:bc.key,hand:deal(handSize),xp:Math.floor(Math.random()*500),level:Math.floor(Math.random()*5)+1,solBalance:Math.random()*10,isBot:true,abilityUsed:false});
+          // Bot matches player's stake
+          const botStake:PlayerStake={playerId:`bot${i}`,playerName:bc.name,token:stakeToken,amount:stakeAmount,confirmed:true};
+          players.push({id:`bot${i}`,name:['Eze','Yaa','Kwame','Fatima'][i]||`Bot${i}`,avatar:bc.icon,character:bc.key,hand:deal(handSize),xp:Math.floor(Math.random()*500),level:Math.floor(Math.random()*5)+1,solBalance:Math.random()*10,isBot:true,abilityUsed:false,stake:botStake});
         }
 
         const nonSpecial=remaining.filter(c=>!c.special&&c.value!=='WHOT');
         const startCard=nonSpecial[0];
         remaining=remaining.filter(c=>c.id!==startCard.id);
+
+        // Deduct KSL for multiplayer game
+        const{profile:p}=get();
+        if(mode==='multiplayer'&&p){
+          set({profile:{...p,kslBalance:Math.max(0,p.kslBalance-KSL_PER_MULTIPLAYER_GAME),kslSpent:p.kslSpent+KSL_PER_MULTIPLAYER_GAME}});
+        }
 
         set({
           players,deck:remaining,pile:[startCard],topCard:startCard,
@@ -277,21 +378,15 @@ export const useGameStore = create<GameState>()(
           direction:1,pendingPick:0,winner:null,isGameStarted:true,
           gameMode:mode,multiMode:multiMode||null,screen:'board',
           selectedCardIds:[],lastPlayEvent:null,
+          playerStakes:[playerStake],
           raidTimeLeft:isRaid?180:null,
         });
 
-        // Start raid timer
         if(isRaid){
           const interval=setInterval(()=>{
             const s=get();
             if(s.winner||!s.raidTimeLeft){clearInterval(interval);return;}
-            if(s.raidTimeLeft<=1){
-              clearInterval(interval);
-              // Player with fewest cards wins raid
-              const fewest=s.players.reduce((a,b)=>a.hand.length<=b.hand.length?a:b);
-              set({winner:fewest,raidTimeLeft:0});
-              return;
-            }
+            if(s.raidTimeLeft<=1){clearInterval(interval);const fewest=s.players.reduce((a,b)=>a.hand.length<=b.hand.length?a:b);set({winner:fewest,raidTimeLeft:0});return;}
             set({raidTimeLeft:s.raidTimeLeft-1});
           },1000);
         }
@@ -337,7 +432,7 @@ export const useGameStore = create<GameState>()(
         const ev:CardPlayEvent={playerName:human.name,card,timestamp:Date.now()};
         if(human.hand.length===0){
           human.xp+=100;human.level=levelFromXp(human.xp);
-          get().recordGameResult(true,6,parseFloat(get().stakeAmount)||0);
+          get().recordGameResult(true,6);
           set({players:pc,pile:newPile,topCard:card,currentSuit:ns,winner:human,selectedCardIds:[],pendingPick:0,lastPlayEvent:ev});
           return;
         }
@@ -345,14 +440,14 @@ export const useGameStore = create<GameState>()(
         let ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         if(card.special==='hold_on'||card.special==='suspension')ni=((ni+direction)+pc.length)%pc.length;
         set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,pendingPick:np,selectedCardIds:[],lastPlayEvent:ev});
-        if(ni!==humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1200);
+        if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
       },
 
       changeSuit:(suit)=>{
         const{direction,players,humanPlayerIndex}=get();
         const ni=((humanPlayerIndex+direction)+players.length)%players.length;
         set({currentSuit:suit,currentPlayerIndex:ni,notification:null});
-        if(ni!==humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1200);
+        if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
       },
 
       drawCard:()=>{
@@ -364,18 +459,18 @@ export const useGameStore = create<GameState>()(
         pc[humanPlayerIndex].hand.push(...deck.slice(0,count));
         const ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         set({players:pc,deck:deck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
-        if(ni!==humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1200);
+        if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
       },
 
       botTurn:()=>{
         const s=get();
         const{currentPlayerIndex:ci,humanPlayerIndex:hi,players}=s;
-        if(ci===hi||!players[ci]||s.winner)return;
+        if(ci===hi||!players[ci]||s.winner||s.gameMode==='multiplayer')return;
         const bot=players[ci];
         const playable=bot.hand.filter(c=>s.topCard&&canPlay(c,s.topCard,s.currentSuit));
         setTimeout(()=>{
           const ns=get();
-          if(ns.winner||ns.currentPlayerIndex!==ci)return;
+          if(ns.winner||ns.currentPlayerIndex!==ci||ns.gameMode==='multiplayer')return;
           const pc=ns.players.map(p=>({...p,hand:[...p.hand]}));
           const bc=pc[ci];
           let ni=((ci+ns.direction)+pc.length)%pc.length;
@@ -388,14 +483,18 @@ export const useGameStore = create<GameState>()(
             if(card.special==='pick2')np+=2;if(card.special==='pick4')np+=4;
             if(card.special==='hold_on'||card.special==='suspension')ni=((ni+ns.direction)+pc.length)%pc.length;
             const ev:CardPlayEvent={playerName:bc.name,card,timestamp:Date.now()};
-            if(bc.hand.length===0){set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,winner:bc,pendingPick:0,lastPlayEvent:ev});return;}
+            if(bc.hand.length===0){
+              get().recordGameResult(false,6);
+              set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,winner:bc,pendingPick:0,lastPlayEvent:ev});
+              return;
+            }
             set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,currentPlayerIndex:ni,pendingPick:np,lastPlayEvent:ev});
           }else{
             const count=ns.pendingPick>0?ns.pendingPick:1;
             if(ns.deck.length>0)bc.hand.push(...ns.deck.slice(0,count));
             set({players:pc,deck:ns.deck.slice(count),currentPlayerIndex:ni,pendingPick:0});
           }
-          if(ni!==ns.humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1000);
+          if(ni!==ns.humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1000);
         },800+Math.random()*600);
       },
 
@@ -403,42 +502,54 @@ export const useGameStore = create<GameState>()(
         const{profile}=get();
         const code=generateCode();
         const host:LobbyPlayer={id:'human',name:profile?.name||'Host',character:profile?.character||'okonkwo',ready:true,isHost:true};
-        set({inviteCode:code.toUpperCase(),multiMode,lobbyPlayers:[host],screen:'lobby',gameMode:'multiplayer'});
+        set({inviteCode:code,multiMode,lobbyPlayers:[host],screen:'lobby',gameMode:'multiplayer'});
       },
 
       joinWithCode:(code)=>{
         const{profile}=get();
         set({
           inviteCode:code.toUpperCase(),
-          lobbyPlayers:[
-            {id:'human',name:profile?.name||'You',character:profile?.character||'okonkwo',ready:true,isHost:false},
-          ],
-          screen:'lobby',
-          gameMode:'multiplayer',notification:{message:`Joining room ${code.toUpperCase()}...`,type:'info'}
+          lobbyPlayers:[{id:'human',name:profile?.name||'You',character:profile?.character||'okonkwo',ready:true,isHost:false}],
+          screen:'lobby',gameMode:'multiplayer',
+          notification:{message:`Joining room ${code.toUpperCase()}...`,type:'info'}
         });
       },
 
-      setLobbyReady:()=>{
-        const{lobbyPlayers}=get();
-        set({lobbyPlayers:lobbyPlayers.map(p=>p.id==='human'?{...p,ready:true}:p)});
-      },
-
       connectWallet:(provider)=>{
-        const addr='7xKp'+Math.random().toString(36).substr(2,8).toUpperCase()+'Dev1';
+        const storageKey=`kingdomsol-wallet-${provider}`;
+        let addr=typeof window!=='undefined'?localStorage.getItem(storageKey):null;
+        if(!addr){
+          const base58chars='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+          const prefix=provider==='phantom'?'Ph':provider==='backpack'?'Bp':'Sf';
+          addr=prefix+Array.from({length:42},()=>base58chars[Math.floor(Math.random()*base58chars.length)]).join('');
+          if(typeof window!=='undefined')localStorage.setItem(storageKey,addr);
+        }
+        const balanceKey=`kingdomsol-balances-${addr}`;
+        let balances:any=null;
+        try{const stored=typeof window!=='undefined'?localStorage.getItem(balanceKey):null;if(stored)balances=JSON.parse(stored);}catch{}
+        if(!balances){
+          balances={SOL:parseFloat((Math.random()*8+2).toFixed(3)),USDC:parseFloat((Math.random()*400+50).toFixed(2)),BONK:Math.floor(Math.random()*8000000+500000),JUP:parseFloat((Math.random()*150+20).toFixed(1)),WIF:parseFloat((Math.random()*40+5).toFixed(2))};
+          if(typeof window!=='undefined')localStorage.setItem(balanceKey,JSON.stringify(balances));
+        }
+        const{profile}=get();
+        const kslBal=profile?.kslBalance||KSL_STARTING_BALANCE;
         set({
-          wallet:{connected:true,address:addr,provider,balances:{SOL:parseFloat((Math.random()*10+2).toFixed(3)),USDC:parseFloat((Math.random()*500).toFixed(2)),BONK:Math.floor(Math.random()*10000000),JUP:parseFloat((Math.random()*200).toFixed(1)),WIF:parseFloat((Math.random()*50).toFixed(2))}},
+          wallet:{connected:true,address:addr,provider,balances,kslBalance:kslBal},
           showWalletModal:false,
-          notification:{message:`${provider} connected! (Devnet — use faucet.solana.com for free SOL)`,type:'success'}
+          notification:{message:`${provider.charAt(0).toUpperCase()+provider.slice(1)} connected! (Devnet)`,type:'success'}
         });
       },
 
       disconnectWallet:()=>{
-        set({wallet:{connected:false,address:null,provider:null,balances:{SOL:0,USDC:0,BONK:0,JUP:0,WIF:0}}});
+        set({wallet:{connected:false,address:null,provider:null,balances:{SOL:0,USDC:0,BONK:0,JUP:0,WIF:0},kslBalance:0}});
       },
     }),
     {
-      name:'kingdomsol-profile',
-      partialize:(s)=>({profile:s.profile,musicEnabled:s.musicEnabled,sfxEnabled:s.sfxEnabled,stakeToken:s.stakeToken,stakeAmount:s.stakeAmount}),
+      name:'kingdomsol-v7',
+      partialize:(s)=>({
+        profile:s.profile,musicEnabled:s.musicEnabled,sfxEnabled:s.sfxEnabled,
+        stakeToken:s.stakeToken,stakeAmount:s.stakeAmount,leaderboard:s.leaderboard
+      }),
     }
   )
 );
