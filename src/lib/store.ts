@@ -341,18 +341,18 @@ export const useGameStore = create<GameState>()(
           set({players:pc,pile:newPile,topCard:card,currentSuit:ns,winner:human,selectedCardIds:[],pendingPick:0,lastPlayEvent:ev});
           return;
         }
-        if(card.value==='WHOT'){set({players:pc,pile:newPile,topCard:card,currentSuit:ns,selectedCardIds:[],pendingPick:np,lastPlayEvent:ev,notification:{message:'WHOT! Choose a suit',type:'info'}});return;}
+        if(card.value==='WHOT'){set({players:pc,pile:newPile,topCard:card,currentSuit:ns,selectedCardIds:[],pendingPick:np,lastPlayEvent:ev,notification:{message:'SOL CARD! Choose a suit',type:'info'}});return;}
         let ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         if(card.special==='hold_on'||card.special==='suspension')ni=((ni+direction)+pc.length)%pc.length;
         set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,pendingPick:np,selectedCardIds:[],lastPlayEvent:ev});
-        if(ni!==humanPlayerIndex)setTimeout(()=>get().botTurn(),1200);
+        if(ni!==humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1200);
       },
 
       changeSuit:(suit)=>{
         const{direction,players,humanPlayerIndex}=get();
         const ni=((humanPlayerIndex+direction)+players.length)%players.length;
         set({currentSuit:suit,currentPlayerIndex:ni,notification:null});
-        if(ni!==humanPlayerIndex)setTimeout(()=>get().botTurn(),1200);
+        if(ni!==humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1200);
       },
 
       drawCard:()=>{
@@ -364,7 +364,7 @@ export const useGameStore = create<GameState>()(
         pc[humanPlayerIndex].hand.push(...deck.slice(0,count));
         const ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         set({players:pc,deck:deck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
-        if(ni!==humanPlayerIndex)setTimeout(()=>get().botTurn(),1200);
+        if(ni!==humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1200);
       },
 
       botTurn:()=>{
@@ -395,7 +395,7 @@ export const useGameStore = create<GameState>()(
             if(ns.deck.length>0)bc.hand.push(...ns.deck.slice(0,count));
             set({players:pc,deck:ns.deck.slice(count),currentPlayerIndex:ni,pendingPick:0});
           }
-          if(ni!==ns.humanPlayerIndex)setTimeout(()=>get().botTurn(),1000);
+          if(ni!==ns.humanPlayerIndex && get().gameMode!=="multiplayer")setTimeout(()=>get().botTurn(),1000);
         },800+Math.random()*600);
       },
 

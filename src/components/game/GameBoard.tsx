@@ -1,5 +1,6 @@
 'use client';
 import { broadcastGameState, getPlayerId } from '@/lib/supabase';
+import { useMultiplayerSync } from '@/hooks/useMultiplayerSync';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameStore, CHARACTERS, CardSuit, SUIT_COLORS } from '@/lib/store';
 import { GameCard, SuitSelector } from '@/components/cards/GameCard';
@@ -27,6 +28,9 @@ export function GameBoard() {
 
   const bgMusicRef = useRef<HTMLAudioElement | null>(null);
   const sfxRef = useRef<HTMLAudioElement | null>(null);
+
+  // Multiplayer real-time sync
+  useMultiplayerSync();
 
   const humanPlayer = players[humanPlayerIndex];
   const isMyTurn = currentPlayerIndex === humanPlayerIndex;

@@ -137,7 +137,7 @@ export function GameCard({ card, isSelected=false, isPlayable=false, isFaceDown=
       {/* TOP LEFT corner */}
       <div style={{ position:'absolute', top:6, left:7, lineHeight:1 }}>
         <div style={{ fontSize:d.cornerSize, fontWeight:900, color, fontFamily:'var(--font-display)', letterSpacing:'-0.02em', textShadow:`0 0 10px ${color}88` }}>
-          {isWHOT ? 'W' : card.value}
+          {isWHOT ? 'S' : card.value}
         </div>
         <div style={{ marginTop:2 }}>
           <SuitSymbol size={d.cornerSym} color={color} />
@@ -151,7 +151,7 @@ export function GameCard({ card, isSelected=false, isPlayable=false, isFaceDown=
             fontFamily:'var(--font-display)', fontSize:d.valSize+4, fontWeight:900,
             color:'#FFD700', textShadow:'0 0 24px rgba(255,215,0,0.9)',
             letterSpacing:'0.04em', textAlign:'center',
-          }}>WHOT</div>
+          }}>SOL CARD</div>
         ) : (
           <>
             <SuitSymbol size={d.symSize} color={color} />
@@ -177,7 +177,7 @@ export function GameCard({ card, isSelected=false, isPlayable=false, isFaceDown=
       {/* BOTTOM RIGHT corner (rotated) */}
       <div style={{ position:'absolute', bottom:6, right:7, transform:'rotate(180deg)', lineHeight:1 }}>
         <div style={{ fontSize:d.cornerSize, fontWeight:900, color, fontFamily:'var(--font-display)', letterSpacing:'-0.02em' }}>
-          {isWHOT ? 'W' : card.value}
+          {isWHOT ? 'S' : card.value}
         </div>
         <div style={{ marginTop:2 }}>
           <SuitSymbol size={d.cornerSym} color={color} />
