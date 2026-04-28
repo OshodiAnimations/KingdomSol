@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useGameStore, CHARACTERS, levelFromXp, KSL_PER_USDC, KSL_USDC_RATE, KSL_PER_MULTIPLAYER_GAME } from '@/lib/store';
+import { requestDevnetAirdrop } from '@/lib/devnet';
 
 export function XPBar({ xp, level, compact=false }: { xp:number; level:number; compact?:boolean }) {
   const xpForLevel=(l:number)=>l*l*100;
@@ -29,6 +30,24 @@ export function XPBar({ xp, level, compact=false }: { xp:number; level:number; c
 export function ProfileScreen() {
   const { profile, wallet, setScreen, topUpKSL, withdrawKSL, notification } = useGameStore();
   const [showTopUp, setShowTopUp] = useState(false);
+  const [airdropping, setAirdropping] = useState(false);
+  const [airdropMsg, setAirdropMsg] = useState('');
+
+  const handleAirdrop = async () => {
+    if (!wallet.address || airdropping) return;
+    setAirdropping(true);
+    setAirdropMsg('Requesting airdrop from Solana devnet...');
+    const result = await requestDevnetAirdrop(wallet.address);
+    setAirdropMsg(result.message);
+    if (result.success) {
+      // Update SOL balance in store
+      useGameStore.setState(s => ({
+        wallet: { ...s.wallet, balances: { ...s.wallet.balances, SOL: (s.wallet.balances['SOL'] || 0) + 1 } }
+      }));
+    }
+    setAirdropping(false);
+    setTimeout(() => setAirdropMsg(''), 6000);
+  };
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const { setAvatar } = useGameStore();
 
@@ -144,6 +163,29 @@ export function ProfileScreen() {
             ⬇ WITHDRAW KSL
           </button>
         </div>
+
+        {/* ── DEVNET AIRDROP ── */}
+        {wallet.connected && (
+          <div style={{ marginBottom:14 }}>
+            <button onClick={handleAirdrop} disabled={airdropping} style={{
+              width:'100%', padding:'13px', borderRadius:10, cursor:airdropping?'wait':'pointer',
+              background:'rgba(0,194,255,0.08)', border:'1.5px solid rgba(0,194,255,0.25)',
+              fontFamily:'var(--font-display)', fontSize:12, fontWeight:900,
+              color:airdropping?'rgba(0,194,255,0.5)':'#00C2FF', letterSpacing:'0.08em',
+              transition:'all 0.2s', opacity:airdropping?0.6:1,
+            }}>
+              {airdropping ? '⏳ REQUESTING AIRDROP...' : '🪂 REQUEST 1 SOL DEVNET AIRDROP'}
+            </button>
+            {airdropMsg && (
+              <div style={{ marginTop:8, padding:'8px 12px', borderRadius:8, background:'rgba(0,194,255,0.06)', border:'1px solid rgba(0,194,255,0.15)', fontFamily:'var(--font-body)', fontSize:12, color:'rgba(0,194,255,0.7)', textAlign:'center' }}>
+                {airdropMsg}
+              </div>
+            )}
+            <div style={{ marginTop:6, fontFamily:'var(--font-body)', fontSize:11, color:'rgba(245,230,200,0.3)', textAlign:'center' }}>
+              Or visit <strong style={{ color:'#00C2FF' }}>faucet.solana.com</strong> for more SOL
+            </div>
+          </div>
+        )}
 
         {/* Top Up panel */}
         {showTopUp && (

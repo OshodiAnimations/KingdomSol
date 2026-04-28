@@ -58,6 +58,8 @@ export interface SharedGameState {
 
   // Player order — array of player_ids in turn order
   playerOrder: string[];
+  // Player names by ID so all clients know everyone's name
+  playerNames: Record<string, string>;
 
   // Deck (shared, only host manages drawing)
   deck: any[];
@@ -204,6 +206,9 @@ export async function startSharedGame(params: {
 
   const playerOrder = params.players.map(p => p.player_id);
 
+  const playerNames: Record<string, string> = {};
+  for (const p of params.players) playerNames[p.player_id] = p.player_name;
+
   const sharedState: SharedGameState = {
     pile: [startCard],
     topCard: startCard,
@@ -214,6 +219,7 @@ export async function startSharedGame(params: {
     winner: null,
     hands,
     playerOrder,
+    playerNames,
     deck: remaining,
     multiMode: params.multiMode,
     stakeToken: params.stakeToken,
@@ -251,6 +257,35 @@ export async function markRoomFinished(code: string) {
 
 export async function leaveRoom(code: string, playerId: string) {
   await supabase.from('room_players').delete().eq('room_code', code).eq('player_id', playerId);
+}
+
+// Called when a player disconnects mid-game
+// If 2 players: game stops, other player wins
+// If 3+ players: last standing player wins all stakes
+export async function handlePlayerDisconnect(code: string, disconnectedPlayerId: string, currentState: SharedGameState) {
+  const remaining = currentState.playerOrder.filter(id => id !== disconnectedPlayerId);
+  
+  if (remaining.length === 1) {
+    // Last player standing wins
+    const winnerId = remaining[0];
+    const newState = { ...currentState, winner: winnerId };
+    await broadcastGameState(code, newState);
+    await supabase.from('rooms').update({ status: 'finished', game_state: newState, updated_at: new Date().toISOString() }).eq('code', code);
+  } else if (remaining.length === 0) {
+    // Everyone left - just close room
+    await supabase.from('rooms').update({ status: 'finished', updated_at: new Date().toISOString() }).eq('code', code);
+  } else {
+    // Remove player from order and hands, continue game
+    const newHands = { ...currentState.hands };
+    delete newHands[disconnectedPlayerId];
+    const newOrder = currentState.playerOrder.filter(id => id !== disconnectedPlayerId);
+    const newNames = { ...currentState.playerNames };
+    delete newNames[disconnectedPlayerId];
+    let newCurrentIdx = currentState.currentPlayerIndex;
+    if (newCurrentIdx >= newOrder.length) newCurrentIdx = 0;
+    const newState = { ...currentState, playerOrder: newOrder, hands: newHands, playerNames: newNames, currentPlayerIndex: newCurrentIdx };
+    await broadcastGameState(code, newState);
+  }
 }
 
 // ─── Realtime ─────────────────────────────────────────────────────────────────

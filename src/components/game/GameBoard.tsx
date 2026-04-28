@@ -53,12 +53,19 @@ export function GameBoard() {
     else { bgMusicRef.current.pause(); }
   }, [musicEnabled]);
 
-  // Play SFX on card play event
+  // Play SFX on ANY card play event — human, bot, or opponent in multiplayer
   useEffect(() => {
     if (!lastPlayEvent) return;
     if (sfxEnabled && sfxRef.current) {
-      sfxRef.current.currentTime = 0;
-      sfxRef.current.play().catch(() => {});
+      // Clone audio to allow overlapping sounds
+      try {
+        const sfxClone = sfxRef.current.cloneNode() as HTMLAudioElement;
+        sfxClone.volume = 0.7;
+        sfxClone.play().catch(() => {});
+      } catch {
+        sfxRef.current.currentTime = 0;
+        sfxRef.current.play().catch(() => {});
+      }
     }
     // Show popup
     const c = lastPlayEvent.card;
@@ -439,7 +446,7 @@ export function GameBoard() {
 
       {/* ── WIN MODAL ── */}
       {winner && showWinModal && (
-        <WinModal winner={winner} isHuman={winner.id==='human'} stakeAmount={stakeAmount} stakeToken={stakeToken}
+        <WinModal winner={winner} isHuman={winner.id==='human'} stakeAmount={stakeAmount} stakeToken={stakeToken} playerCount={players.length}
           onClose={() => setScreen('menu')} onPlayAgain={() => { setShowWinModal(false); setScreen('menu'); }} />
       )}
 
@@ -452,33 +459,63 @@ export function GameBoard() {
   );
 }
 
-function WinModal({ winner, isHuman, stakeAmount, stakeToken, onClose, onPlayAgain }: {
-  winner: any; isHuman: boolean; stakeAmount: string; stakeToken: string; onClose:()=>void; onPlayAgain:()=>void;
+function WinModal({ winner, isHuman, stakeAmount, stakeToken, playerCount, onClose, onPlayAgain }: {
+  winner: any; isHuman: boolean; stakeAmount: string; stakeToken: string; playerCount: number; onClose:()=>void; onPlayAgain:()=>void;
 }) {
   const char = CHARACTERS.find(c => c.key === winner.character) || CHARACTERS[0];
+  const pot = (parseFloat(stakeAmount) * playerCount);
+  // Treasury takes 0.5%
+  const treasury = pot * 0.005;
+  const winnerPot = pot - treasury;
+  const xpWinner = 150 + playerCount * 25;
+  const xpLoser = 20;
+
   return (
     <div style={{ position:'fixed', inset:0, zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.88)', backdropFilter:'blur(10px)' }}>
       <div style={{
-        padding:48, borderRadius:24, textAlign:'center',
+        padding:'40px 36px', borderRadius:24, textAlign:'center',
         background:`linear-gradient(135deg, ${char.accentColor}18 0%, rgba(26,20,16,0.97) 100%)`,
         border:`2px solid ${char.accentColor}55`,
         boxShadow:`0 0 80px ${char.accentColor}22`,
         maxWidth:420, width:'90%',
         animation:'modal-pop 0.4s cubic-bezier(0.34,1.56,0.64,1)',
       }}>
-        <div style={{ fontSize:64, marginBottom:16 }}>{isHuman?'👑':'💀'}</div>
-        <div style={{ fontFamily:'var(--font-display)', fontSize:32, fontWeight:900, color:char.accentColor, letterSpacing:'0.08em', marginBottom:8 }}>
-          {isHuman?'VICTORY!':'DEFEATED'}
+        <div style={{ fontSize:64, marginBottom:12 }}>{isHuman?'👑':'💀'}</div>
+        <div style={{ fontFamily:'var(--font-display)', fontSize:30, fontWeight:900, color:char.accentColor, letterSpacing:'0.08em', marginBottom:6 }}>
+          {isHuman ? 'VICTORY!' : 'DEFEATED'}
         </div>
-        <div style={{ fontFamily:'var(--font-body)', fontSize:16, color:'rgba(245,230,200,0.6)', marginBottom:24, lineHeight:1.5 }}>
-          {isHuman?`${winner.name} reigns supreme! +${(parseFloat(stakeAmount)*2).toFixed(2)} ${stakeToken} earned`:`${winner.name} wins this round. Fight back harder!`}
+        <div style={{ fontFamily:'var(--font-body)', fontSize:15, color:'rgba(245,230,200,0.6)', marginBottom:16, lineHeight:1.5 }}>
+          {isHuman ? `${winner.name} reigns supreme!` : `${winner.name} wins this round.`}
         </div>
-        <div style={{ padding:'12px 20px', borderRadius:10, marginBottom:28, background:'rgba(153,69,255,0.12)', border:'1px solid rgba(153,69,255,0.3)', fontFamily:'var(--font-display)', fontSize:13, color:'#9945FF', fontWeight:700 }}>
-          +{isHuman?100:20} XP · Level {winner.level}
+
+        {/* Stake pot result */}
+        {pot > 0 && (
+          <div style={{ padding:'14px 18px', borderRadius:12, marginBottom:14, background:isHuman?'rgba(20,241,149,0.1)':'rgba(255,68,68,0.08)', border:`1.5px solid ${isHuman?'rgba(20,241,149,0.3)':'rgba(255,68,68,0.2)'}` }}>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:10, fontWeight:900, color:'rgba(245,230,200,0.4)', letterSpacing:'0.18em', marginBottom:6 }}>
+              {isHuman ? 'POT WON' : 'POT LOST'}
+            </div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:24, fontWeight:900, color:isHuman?'#14F195':'#FF6666' }}>
+              {isHuman ? `+${winnerPot.toFixed(3)} ${stakeToken}` : `-${parseFloat(stakeAmount).toFixed(3)} ${stakeToken}`}
+            </div>
+            {isHuman && treasury > 0 && (
+              <div style={{ fontFamily:'var(--font-body)', fontSize:11, color:'rgba(245,230,200,0.35)', marginTop:4 }}>
+                (0.5% treasury fee: {treasury.toFixed(4)} {stakeToken})
+              </div>
+            )}
+            <div style={{ fontFamily:'var(--font-body)', fontSize:12, color:'rgba(245,230,200,0.4)', marginTop:4 }}>
+              Total pot: {pot.toFixed(3)} {stakeToken} · {playerCount} players
+            </div>
+          </div>
+        )}
+
+        {/* XP earned */}
+        <div style={{ padding:'10px 16px', borderRadius:10, marginBottom:24, background:'rgba(153,69,255,0.1)', border:'1px solid rgba(153,69,255,0.25)', fontFamily:'var(--font-display)', fontSize:13, color:'#9945FF', fontWeight:700 }}>
+          +{isHuman ? xpWinner : xpLoser} XP earned · Level {winner.level}
         </div>
-        <div style={{ display:'flex', gap:12, justifyContent:'center' }}>
-          <button className="btn-secondary" style={{ fontSize:12, padding:'12px 24px', fontWeight:700 }} onClick={onClose}>MAIN MENU</button>
-          <button className="btn-primary" style={{ fontSize:12, padding:'12px 28px', fontWeight:700 }} onClick={onPlayAgain}>PLAY AGAIN</button>
+
+        <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+          <button className="btn-secondary" style={{ fontSize:12, padding:'12px 20px', fontWeight:700 }} onClick={onClose}>MAIN MENU</button>
+          <button className="btn-primary" style={{ fontSize:12, padding:'12px 24px', fontWeight:700 }} onClick={onPlayAgain}>PLAY AGAIN</button>
         </div>
       </div>
       <style>{`@keyframes modal-pop{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}`}</style>

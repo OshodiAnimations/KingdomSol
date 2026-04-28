@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { useGameStore, CHARACTERS } from '@/lib/store';
-import { supabase, getPlayerId, SharedGameState } from '@/lib/supabase';
+import { supabase, getPlayerId, SharedGameState, handlePlayerDisconnect, leaveRoom } from '@/lib/supabase';
 import type { Card, CardSuit, Player } from '@/lib/store';
 
 export function useMultiplayerSync() {
@@ -43,7 +43,7 @@ export function useMultiplayerSync() {
       const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
       return {
         id: pid,
-        name: existing?.name || `Player ${idx + 1}`,
+        name: existing?.name || (shared as any).playerNames?.[pid] || `Player ${idx + 1}`,
         avatar: existing?.avatar || char.icon,
         character: existing?.character || char.key,
         hand: shared.hands[pid] || [],
@@ -91,16 +91,59 @@ export function useMultiplayerSync() {
       }, (payload) => {
         const room = payload.new as any;
         if (room?.status === 'finished') {
-          useGameStore.setState({ screen: 'menu' });
+          useGameStore.setState({
+            notification: { message: 'Game ended — a player disconnected.', type: 'info' },
+            screen: 'menu'
+          });
           return;
         }
         if (room?.game_state) {
           applyIncomingState(room.game_state as SharedGameState);
         }
       })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'room_players',
+        filter: `room_code=eq.${inviteCode}`,
+      }, async (payload) => {
+        const disconnectedId = (payload.old as any)?.player_id;
+        if (!disconnectedId || disconnectedId === myPlayerIdRef.current) return;
+        const state = useGameStore.getState();
+        if (!state.isGameStarted) return;
+        const shared: SharedGameState = {
+          pile: state.pile,
+          topCard: state.topCard,
+          currentSuit: state.currentSuit || 'cowrie',
+          currentPlayerIndex: state.currentPlayerIndex,
+          direction: state.direction,
+          pendingPick: state.pendingPick,
+          winner: state.winner?.id || null,
+          hands: Object.fromEntries(state.players.map(p => [p.id, p.hand])),
+          playerOrder: state.players.map(p => p.id),
+          playerNames: Object.fromEntries(state.players.map(p => [p.id, p.name])),
+          deck: state.deck,
+          multiMode: state.multiMode || 'war',
+          stakeToken: state.stakeToken,
+          stakeAmount: state.stakeAmount,
+        };
+        await handlePlayerDisconnect(inviteCode!, disconnectedId, shared);
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Handle own disconnect
+    const handleUnload = async () => {
+      const state = useGameStore.getState();
+      if (state.gameMode === 'multiplayer' && inviteCode && state.isGameStarted) {
+        await leaveRoom(inviteCode, myPlayerIdRef.current);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   }, [gameMode, inviteCode]);
 
   // Heartbeat fallback — only if realtime missed something
