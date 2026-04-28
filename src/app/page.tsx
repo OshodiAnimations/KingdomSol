@@ -10,6 +10,21 @@ import { LobbyScreen } from '@/components/ui/LobbyScreen';
 import { WalletModal } from '@/components/wallet/WalletChip';
 
 export default function Home() {
+  // Fix 2: Pause/resume music when tab is hidden/shown
+  useEffect(() => {
+    const handleVisibility = () => {
+      const audio = typeof window !== 'undefined' ? (window as any).__bgMusic as HTMLAudioElement | undefined : undefined;
+      if (!audio) return;
+      const { musicEnabled } = useGameStore.getState();
+      if (document.hidden) {
+        audio.pause();
+      } else if (musicEnabled) {
+        audio.play().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
   const { screen, showWalletModal, joinWithCode, profile, setScreen } = useGameStore();
 
   // Check URL for room code on first load

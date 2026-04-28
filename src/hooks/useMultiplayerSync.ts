@@ -8,29 +8,36 @@ export function useMultiplayerSync() {
   const gameMode = useGameStore(s => s.gameMode);
   const inviteCode = useGameStore(s => s.inviteCode);
   const myPlayerIdRef = useRef(getPlayerId());
-  const lastPileLengthRef = useRef(0);
-  const lastTurnRef = useRef(-1);
+  const lastAppliedRef = useRef<string>('');
+  const applyingRef = useRef(false);
 
-  // ─── Core function: apply incoming Supabase state correctly ───────────────
   function applyIncomingState(shared: SharedGameState) {
+    // Deduplicate: skip if we already applied this exact state
+    const stateKey = `${shared.currentPlayerIndex}-${shared.pile.length}-${shared.winner || ''}`;
+    if (stateKey === lastAppliedRef.current) return;
+    if (applyingRef.current) return;
+    applyingRef.current = true;
+
     const myPlayerId = myPlayerIdRef.current;
     const state = useGameStore.getState();
-
-    // Find MY index in the player order — this NEVER changes
     const myIndex = shared.playerOrder.indexOf(myPlayerId);
-    if (myIndex === -1) return; // not in this game
 
-    // Skip if nothing actually changed (avoid re-render loops)
-    if (
-      shared.pile.length === lastPileLengthRef.current &&
-      shared.currentPlayerIndex === lastTurnRef.current &&
-      !shared.winner
-    ) return;
+    // Don't apply if we're not in this game
+    if (myIndex === -1) { applyingRef.current = false; return; }
 
-    lastPileLengthRef.current = shared.pile.length;
-    lastTurnRef.current = shared.currentPlayerIndex;
+    // Don't apply our OWN moves (we already applied them locally)
+    const currentTurnPlayerId = shared.playerOrder[shared.currentPlayerIndex];
+    const prevTurnPlayerId = shared.playerOrder[
+      ((shared.currentPlayerIndex - 1) + shared.playerOrder.length) % shared.playerOrder.length
+    ];
+    // If we just played (prev turn was ours), skip — we already have this state
+    if (prevTurnPlayerId === myPlayerId && shared.pile.length > state.pile.length) {
+      applyingRef.current = false;
+      return;
+    }
 
-    // Rebuild player list — each player ALWAYS sees themselves at humanPlayerIndex
+    lastAppliedRef.current = stateKey;
+
     const updatedPlayers: Player[] = shared.playerOrder.map((pid, idx) => {
       const existing = state.players.find(p => p.id === pid);
       const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
@@ -39,7 +46,6 @@ export function useMultiplayerSync() {
         name: existing?.name || `Player ${idx + 1}`,
         avatar: existing?.avatar || char.icon,
         character: existing?.character || char.key,
-        // Each player sees their OWN full hand, others are shown face-down in UI
         hand: shared.hands[pid] || [],
         xp: existing?.xp || 0,
         level: existing?.level || 1,
@@ -53,32 +59,30 @@ export function useMultiplayerSync() {
       ? updatedPlayers.find(p => p.id === shared.winner) || null
       : null;
 
-    // KEY FIX: humanPlayerIndex is always MY index — never overwrite with 0
+    // Batch the state update — single setState call, no cascading
     useGameStore.setState({
       players: updatedPlayers,
       pile: shared.pile as Card[],
       topCard: shared.topCard as Card,
       currentSuit: shared.currentSuit as CardSuit,
       currentPlayerIndex: shared.currentPlayerIndex,
-      humanPlayerIndex: myIndex, // ← THIS is the critical fix
+      humanPlayerIndex: myIndex,  // Always my own index — never changes
       direction: shared.direction,
       pendingPick: shared.pendingPick,
       deck: shared.deck as Card[],
       winner,
-      selectedCardIds: [], // clear any pending selection on state update
+      selectedCardIds: [],  // Clear selection on state sync
     });
 
-    if (winner) {
-      setTimeout(() => useGameStore.setState(s => ({ ...s })), 200);
-    }
+    applyingRef.current = false;
   }
 
-  // ─── Realtime subscription ────────────────────────────────────────────────
+  // Realtime subscription
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
     const channel = supabase
-      .channel(`game-sync:${inviteCode}:${myPlayerIdRef.current}`)
+      .channel(`mpsync:${inviteCode}:${myPlayerIdRef.current}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -86,25 +90,26 @@ export function useMultiplayerSync() {
         filter: `code=eq.${inviteCode}`,
       }, (payload) => {
         const room = payload.new as any;
+        if (room?.status === 'finished') {
+          useGameStore.setState({ screen: 'menu' });
+          return;
+        }
         if (room?.game_state) {
           applyIncomingState(room.game_state as SharedGameState);
         }
-        if (room?.status === 'finished') {
-          useGameStore.setState({ screen: 'menu' });
-        }
       })
-      .subscribe((status) => {
-        console.log('[Multiplayer] Realtime status:', status);
-      });
+      .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [gameMode, inviteCode]);
 
-  // ─── Heartbeat fallback every 4 seconds ──────────────────────────────────
+  // Heartbeat fallback — only if realtime missed something
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
     const interval = setInterval(async () => {
+      if (applyingRef.current) return; // skip if mid-apply
+
       try {
         const { data } = await supabase
           .from('rooms')
@@ -113,17 +118,19 @@ export function useMultiplayerSync() {
           .single();
 
         if (!data) return;
-        if (data.status === 'finished') {
-          useGameStore.setState({ screen: 'menu' });
-          return;
+        if (data.status === 'finished') { useGameStore.setState({ screen: 'menu' }); return; }
+
+        const shared = data.game_state as SharedGameState;
+        if (!shared) return;
+
+        const state = useGameStore.getState();
+        // Only apply if something actually changed
+        if (shared.currentPlayerIndex !== state.currentPlayerIndex ||
+            shared.pile.length !== state.pile.length) {
+          applyIncomingState(shared);
         }
-        if (data.game_state) {
-          applyIncomingState(data.game_state as SharedGameState);
-        }
-      } catch (e) {
-        // Silent fail — realtime should cover this
-      }
-    }, 4000);
+      } catch {}
+    }, 5000); // Every 5 seconds — reduced frequency stops the shake
 
     return () => clearInterval(interval);
   }, [gameMode, inviteCode]);

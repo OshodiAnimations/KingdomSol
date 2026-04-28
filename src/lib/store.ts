@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 
 export type CardSuit = 'manilla' | 'amole' | 'spearhead' | 'bead' | 'cowrie';
 export type CardValue = '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'10'|'11'|'12'|'13'|'14'|'WHOT';
-export type GameMode = 'story' | 'multiplayer' | 'classic';
+export type GameMode = 'story' | 'multiplayer' | 'classic' | 'easy' | 'warrior';
 export type MultiMode = 'war' | 'friendly' | 'raid';
 export type Screen = 'loading' | 'name_setup' | 'menu' | 'board' | 'profile' | 'lobby';
 export type TokenSymbol = 'SOL' | 'USDC' | 'BONK' | 'JUP' | 'WIF' | 'KSL';
@@ -349,8 +349,11 @@ export const useGameStore = create<GameState>()(
         const char=CHARACTERS.find(c=>c.key===charKey)||CHARACTERS[0];
         const deck=createDeck();
         const isRaid=multiMode==='raid';
-        const handSize=isRaid?3:6;
-        const numBots=mode==='multiplayer'?0:mode==='classic'?3:1;
+        // Easy: 1 weak bot, Warrior: 3 strong bots, Classic: 3 normal bots
+        const isEasy=mode==='easy';
+        const isWarrior=mode==='warrior';
+        const handSize=isRaid?3:isEasy?8:6; // easy gives player more cards
+        const numBots=mode==='multiplayer'?0:isEasy?1:mode==='classic'||isWarrior?3:1;
         const players:Player[]=[];
         let remaining=deck;
         const deal=(n:number)=>{const h=remaining.slice(0,n);remaining=remaining.slice(n);return h;};
@@ -369,7 +372,11 @@ export const useGameStore = create<GameState>()(
           const bc=CHARACTERS[(i+1)%CHARACTERS.length];
           // Bot matches player's stake
           const botStake:PlayerStake={playerId:`bot${i}`,playerName:bc.name,token:stakeToken,amount:stakeAmount,confirmed:true};
-          players.push({id:`bot${i}`,name:['Eze','Yaa','Kwame','Fatima'][i]||`Bot${i}`,avatar:bc.icon,character:bc.key,hand:deal(handSize),xp:Math.floor(Math.random()*500),level:Math.floor(Math.random()*5)+1,solBalance:Math.random()*10,isBot:true,abilityUsed:false,stake:botStake});
+          const botLevel = isWarrior ? Math.floor(Math.random()*3)+8 : isEasy ? 1 : Math.floor(Math.random()*5)+1;
+          const botXp = botLevel * botLevel * 100;
+          // Warrior bots get fewer starting cards (harder for player)
+          const botHandSize = isWarrior ? handSize : handSize;
+          players.push({id:`bot${i}`,name:isWarrior?['Pharaoh Eze','War Queen Yaa','Iron Kwame','Shadow Fatima'][i]||`Warrior Bot${i}`:['Eze','Yaa','Kwame','Fatima'][i]||`Bot${i}`,avatar:bc.icon,character:bc.key,hand:deal(handSize),xp:botXp,level:botLevel,solBalance:Math.random()*10,isBot:true,abilityUsed:false,stake:botStake});
         }
 
         const nonSpecial=remaining.filter(c=>!c.special&&c.value!=='WHOT');
@@ -419,9 +426,24 @@ export const useGameStore = create<GameState>()(
         if(human.abilityUsed){set({notification:{message:'Ability already used!',type:'error'}});return;}
         const pc=players.map(p=>({...p,hand:[...p.hand]}));
         pc[humanPlayerIndex].abilityUsed=true;
-        if(human.character==='zara'){set({players:pc,pendingPick:0,notification:{message:'Evasion! Pick penalty cancelled!',type:'success'}});}
+        if(human.character==='zara'){
+          if(get().pendingPick===0){set({notification:{message:'No pick penalty to cancel right now!',type:'error'}});pc[humanPlayerIndex].abilityUsed=false;return;}
+          set({players:pc,pendingPick:0,notification:{message:'Evasion activated! Pick penalty cancelled!',type:'success'}});
+        }
         else if(human.character==='amara'){const{deck}=get();const t=deck.slice(0,3).map(c=>`${c.value} of ${c.suit}`).join(', ');set({players:pc,notification:{message:`Future Sight: ${t}`,type:'info'}});}
-        else if(human.character==='nefertari'){set({players:pc,notification:{message:'Royal Decree! Choose a suit.',type:'info'}});}
+        else if(human.character==='nefertari'){
+          // Trigger suit selector without playing a card
+          set({players:pc,notification:{message:'Royal Decree! Choose a suit to change.',type:'info'},showWalletModal:false});
+          // Show suit selector by triggering WHOT notification pattern
+          setTimeout(()=>set({notification:{message:'SOL CARD! Choose a suit',type:'info'}}),100);
+        }
+        else if(human.character==='kofi'){
+          set({players:pc,notification:{message:'Golden Touch activated! Win with SOL CARD for double KSL!',type:'success'}});
+        }
+        else if(human.character==='okonkwo'){
+          // Trade Mastery: allow playing 2 cards of same value - just notify
+          set({players:pc,notification:{message:'Trade Mastery ready! Select 2 cards of same value to play both.',type:'info'}});
+        }
         else{set({players:pc,notification:{message:`${CHARACTERS.find(c=>c.key===human.character)?.ability} activated!`,type:'success'}});}
       },
 
@@ -451,6 +473,7 @@ export const useGameStore = create<GameState>()(
         if(card.special==='hold_on'||card.special==='suspension')ni=((ni+direction)+pc.length)%pc.length;
         set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,pendingPick:np,selectedCardIds:[],lastPlayEvent:ev});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
+        else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
 
       changeSuit:(suit)=>{
@@ -458,6 +481,7 @@ export const useGameStore = create<GameState>()(
         const ni=((humanPlayerIndex+direction)+players.length)%players.length;
         set({currentSuit:suit,currentPlayerIndex:ni,notification:null});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
+        else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
 
       drawCard:()=>{
@@ -478,6 +502,7 @@ export const useGameStore = create<GameState>()(
         const ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         set({players:pc,deck:activeDeck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
+        else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
 
       botTurn:()=>{

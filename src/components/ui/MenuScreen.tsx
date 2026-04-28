@@ -111,25 +111,21 @@ export function MenuScreen() {
 
         {/* GAME MODES */}
         <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap', marginBottom:24 }}>
-          {/* Story */}
-          <div style={{ width:170, padding:'18px 14px', borderRadius:16, cursor:'pointer', background:'rgba(26,20,16,0.7)', border:'1.5px solid rgba(232,184,75,0.12)', transition:'all 0.25s', backdropFilter:'blur(10px)', textAlign:'center' }}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-4px)';(e.currentTarget as HTMLElement).style.background='rgba(232,184,75,0.08)';(e.currentTarget as HTMLElement).style.borderColor='rgba(232,184,75,0.35)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.background='rgba(26,20,16,0.7)';(e.currentTarget as HTMLElement).style.borderColor='rgba(232,184,75,0.12)';}}>
-            <div style={{ fontSize:30, marginBottom:8 }}>📜</div>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:14, fontWeight:900, color:'#E8B84B', letterSpacing:'0.08em', marginBottom:5 }}>Story Mode</div>
-            <div style={{ fontFamily:'var(--font-body)', fontSize:12, color:'rgba(245,230,200,0.45)', marginBottom:14 }}>The Time Thief Returns</div>
-            <button className="btn-primary" style={{ width:'100%', fontSize:11, padding:'9px', letterSpacing:'0.1em', fontWeight:900 }} onClick={() => handlePlayMode('story')}>PLAY</button>
+          {[
+            { mode:'easy' as const, icon:'🌱', label:'Easy Mode', desc:'1 bot · Extra cards · Learn the game', color:'#14F195' },
+            { mode:'story' as const, icon:'📜', label:'Story Mode', desc:'The Time Thief Returns · 1 bot', color:'#E8B84B' },
+            { mode:'classic' as const, icon:'🎴', label:'Classic Mode', desc:'3 bots · Standard rules', color:'#00C2FF' },
+            { mode:'warrior' as const, icon:'⚔️', label:'Warrior Mode', desc:'3 elite bots · Hardest challenge', color:'#FF6FD8' },
+          ].map(({ mode, icon, label, desc, color }) => (
+          <div key={mode} style={{ width:155, padding:'16px 12px', borderRadius:16, cursor:'pointer', background:'rgba(26,20,16,0.7)', border:`1.5px solid rgba(232,184,75,0.1)`, transition:'all 0.25s', backdropFilter:'blur(10px)', textAlign:'center' }}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-4px)';(e.currentTarget as HTMLElement).style.background=`${color}0d`;(e.currentTarget as HTMLElement).style.borderColor=`${color}44`;}}
+            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.background='rgba(26,20,16,0.7)';(e.currentTarget as HTMLElement).style.borderColor='rgba(232,184,75,0.1)';}}>
+            <div style={{ fontSize:28, marginBottom:7 }}>{icon}</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:900, color, letterSpacing:'0.06em', marginBottom:4 }}>{label}</div>
+            <div style={{ fontFamily:'var(--font-body)', fontSize:11, color:'rgba(245,230,200,0.4)', marginBottom:12, lineHeight:1.4 }}>{desc}</div>
+            <button className="btn-primary" style={{ width:'100%', fontSize:10, padding:'8px', letterSpacing:'0.08em', fontWeight:900 }} onClick={() => handlePlayMode(mode)}>PLAY</button>
           </div>
-
-          {/* Classic */}
-          <div style={{ width:170, padding:'18px 14px', borderRadius:16, cursor:'pointer', background:'rgba(26,20,16,0.7)', border:'1.5px solid rgba(232,184,75,0.12)', transition:'all 0.25s', backdropFilter:'blur(10px)', textAlign:'center' }}
-            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-4px)';(e.currentTarget as HTMLElement).style.background='rgba(20,241,149,0.06)';(e.currentTarget as HTMLElement).style.borderColor='rgba(20,241,149,0.3)';}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.background='rgba(26,20,16,0.7)';(e.currentTarget as HTMLElement).style.borderColor='rgba(232,184,75,0.12)';}}>
-            <div style={{ fontSize:30, marginBottom:8 }}>🎴</div>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:14, fontWeight:900, color:'#14F195', letterSpacing:'0.08em', marginBottom:5 }}>Classic Mode</div>
-            <div style={{ fontFamily:'var(--font-body)', fontSize:12, color:'rgba(245,230,200,0.45)', marginBottom:14 }}>WHOT-style vs bots</div>
-            <button className="btn-primary" style={{ width:'100%', fontSize:11, padding:'9px', letterSpacing:'0.1em', fontWeight:900 }} onClick={() => handlePlayMode('classic')}>PLAY</button>
-          </div>
+          ))}
 
           {/* Multiplayer */}
           <div style={{ width:190, padding:'18px 14px', borderRadius:16, background:showMultiPanel?'rgba(153,69,255,0.12)':'rgba(26,20,16,0.7)', border:`1.5px solid ${showMultiPanel?'rgba(153,69,255,0.4)':'rgba(232,184,75,0.12)'}`, transition:'all 0.25s', backdropFilter:'blur(10px)', textAlign:'center' }}>

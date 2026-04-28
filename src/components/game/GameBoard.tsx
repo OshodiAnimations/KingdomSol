@@ -99,29 +99,7 @@ export function GameBoard() {
     if (winner) setTimeout(() => setShowWinModal(true), 600);
   }, [winner]);
 
-  // Multiplayer: broadcast state after every card play or draw
-  useEffect(() => {
-    const s = useGameStore.getState();
-    if (s.gameMode !== 'multiplayer' || !s.inviteCode) return;
-
-    const shared = {
-      pile: s.pile,
-      topCard: s.topCard,
-      currentSuit: s.currentSuit || s.topCard?.suit || 'cowrie',
-      currentPlayerIndex: s.currentPlayerIndex,
-      direction: s.direction,
-      pendingPick: s.pendingPick,
-      winner: s.winner?.id || null,
-      hands: Object.fromEntries(s.players.map(p => [p.id, p.hand])),
-      playerOrder: s.players.map(p => p.id),
-      deck: s.deck,
-      multiMode: s.multiMode || 'war',
-      stakeToken: s.stakeToken,
-      stakeAmount: s.stakeAmount,
-    };
-
-    broadcastGameState(s.inviteCode, shared).catch(console.error);
-  }, [pile?.length, currentPlayerIndex, winner?.id]);
+  // Broadcast is handled by playCard/drawCard in store directly
 
   const handleCardClick = (cardId: string) => {
     if (!isMyTurn) return;
