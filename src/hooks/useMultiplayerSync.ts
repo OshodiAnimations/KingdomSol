@@ -47,8 +47,12 @@ export function useMultiplayerSync() {
       };
     });
 
+    // Find winner player object - match by id
     const winner = shared.winner
-      ? updatedPlayers.find(p => p.id === shared.winner) || null
+      ? updatedPlayers.find(p => p.id === shared.winner) ||
+        { id: shared.winner, name: shared.playerNames?.[shared.winner] || 'Winner',
+          avatar: '👑', character: 'okonkwo' as const, hand: [], xp: 0, level: 1,
+          solBalance: 0, isBot: false, abilityUsed: false }
       : null;
 
     // Batch the state update — single setState call, no cascading

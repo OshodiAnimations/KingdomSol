@@ -36,6 +36,9 @@ export function GameBoard() {
   const [pendingWhotCard, setPendingWhotCard] = useState<string | null>(null);
   const [cardPops, setCardPops] = useState<CardPopEvent[]>([]);
   const [drawPop, setDrawPop] = useState<{ playerName: string; count: number } | null>(null);
+  const [flyCard, setFlyCard] = useState<{ card: Card; fromX: number; fromY: number } | null>(null);
+  const handRef = useRef<HTMLDivElement>(null);
+  const pileRef = useRef<HTMLDivElement>(null);
 
   const sfxRef = useRef<HTMLAudioElement | null>(null);
   const playerId = getPlayerId();
@@ -44,7 +47,12 @@ export function GameBoard() {
   const isMyTurn = currentPlayerIndex === humanPlayerIndex;
   const char = CHARACTERS.find(c => c.key === humanPlayer?.character) || CHARACTERS[0];
   const isMultiplayer = gameMode === 'multiplayer';
-  const iWon = winner?.id === 'human' || (isMultiplayer && winner?.id === playerId);
+  // iWon: solo = winner.id is 'human', multiplayer = winner.id matches our playerId
+  const iWon = !!winner && (
+    winner.id === 'human' ||
+    winner.id === playerId ||
+    winner.name === humanPlayer?.name
+  );
   const iLost = !!winner && !iWon;
 
   // ── Audio setup ────────────────────────────────────────────────────────────
@@ -73,8 +81,12 @@ export function GameBoard() {
       }
     }
 
-    // Card played popup
+    // Card fly-to-pile animation
     const c = lastPlayEvent.card;
+    setFlyCard({ card: c, fromX: 0, fromY: 0 });
+    setTimeout(() => setFlyCard(null), 600);
+
+    // Card played popup
     const label = c.value === 'WHOT' ? 'SOL CARD!' : `${c.value} of ${c.suit}`;
     const color = c.value === 'WHOT' ? '#FFD700' : SUIT_COLORS[c.suit];
     const pop: CardPopEvent = {
@@ -139,6 +151,28 @@ export function GameBoard() {
     };
     broadcastGameState(inviteCode, shared).catch(() => {});
   }, [pile?.length, currentPlayerIndex, winner?.id]);
+
+  // Fix 2: Extra broadcast specifically on win — ensures all multiplayer clients see winner
+  useEffect(() => {
+    if (!winner || !isMultiplayer || !inviteCode) return;
+    // Broadcast winner state immediately and again after 500ms as backup
+    const s = useGameStore.getState();
+    const shared = {
+      pile: s.pile, topCard: s.topCard,
+      currentSuit: s.currentSuit || s.topCard?.suit || 'cowrie',
+      currentPlayerIndex: s.currentPlayerIndex,
+      direction: s.direction, pendingPick: s.pendingPick,
+      winner: winner.id,
+      hands: Object.fromEntries(s.players.map(p => [p.id, p.hand])),
+      playerOrder: s.players.map(p => p.id),
+      playerNames: Object.fromEntries(s.players.map(p => [p.id, p.name])),
+      deck: s.deck, multiMode: s.multiMode || 'war',
+      stakeToken: s.stakeToken, stakeAmount: s.stakeAmount,
+    };
+    broadcastGameState(inviteCode, shared).catch(() => {});
+    const t = setTimeout(() => broadcastGameState(inviteCode, shared).catch(() => {}), 600);
+    return () => clearTimeout(t);
+  }, [winner?.id]);
 
   // ── Card click handler ─────────────────────────────────────────────────────
   const handleCardClick = (cardId: string) => {
@@ -362,7 +396,13 @@ export function GameBoard() {
               ? (card.value==='WHOT' || card.suit===(currentSuit||topCard.suit) || card.value===topCard.value)
               : false;
             return (
-              <div key={card.id} style={{ flexShrink:0 }}>
+              <div key={card.id} style={{ flexShrink:0 }}
+                onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform='scale(0.93)'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform=''; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform=''; }}
+                onTouchStart={e => { (e.currentTarget as HTMLElement).style.transform='scale(0.93)'; }}
+                onTouchEnd={e => { (e.currentTarget as HTMLElement).style.transform=''; }}
+              >
                 <GameCard
                   card={card}
                   isSelected={selectedCardIds.includes(card.id)}
@@ -406,6 +446,17 @@ export function GameBoard() {
         </div>
       </div>
 
+      {/* ── CARD FLY ANIMATION ── */}
+      {flyCard && (
+        <div style={{
+          position:'fixed', top:'50%', left:'50%', zIndex:350,
+          pointerEvents:'none', transform:'translate(-50%, -50%)',
+          animation:'card-fly-to-pile 0.55s cubic-bezier(0.4,0,0.2,1) forwards',
+        }}>
+          <GameCard card={flyCard.card} size="sm" />
+        </div>
+      )}
+
       {/* ── SUIT SELECTOR MODAL ── */}
       {showSuitSelector && (
         <div style={{ position:'fixed', inset:0, zIndex:400, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.78)', backdropFilter:'blur(8px)' }}>
@@ -438,6 +489,7 @@ export function GameBoard() {
         @keyframes modal-pop{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
         @keyframes victory-shine{0%,100%{box-shadow:0 0 40px rgba(232,184,75,0.4)}50%{box-shadow:0 0 80px rgba(232,184,75,0.8),0 0 140px rgba(232,184,75,0.3)}}
         @keyframes defeat-fade{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+        @keyframes card-fly-to-pile{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}60%{opacity:1;transform:translate(-50%,-50%) scale(0.85)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}}
       `}</style>
     </div>
   );
@@ -466,7 +518,7 @@ function VictoryScreen({ winner, stakeAmount, stakeToken, playerCount, onMenu, o
         <div style={{ fontSize:80, marginBottom:16, animation:'float 2s ease-in-out infinite', filter:`drop-shadow(0 0 20px ${char.accentColor}88)` }}>👑</div>
 
         <div style={{ fontFamily:'var(--font-display)', fontSize:14, fontWeight:700, color:`${char.accentColor}99`, letterSpacing:'0.25em', marginBottom:10, textTransform:'uppercase' }}>
-          Victory
+          Champion
         </div>
         <div style={{ fontFamily:'var(--font-display)', fontSize:36, fontWeight:900, color:char.accentColor, letterSpacing:'0.08em', marginBottom:6, textShadow:`0 0 30px ${char.accentColor}66` }}>
           {winner.name}

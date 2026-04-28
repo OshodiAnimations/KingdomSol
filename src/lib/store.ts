@@ -491,6 +491,8 @@ export const useGameStore = create<GameState>()(
           human.xp+=100;human.level=levelFromXp(human.xp);
           get().recordGameResult(true,6);
           set({players:pc,pile:newPile,topCard:card,currentSuit:ns,winner:human,selectedCardIds:[],pendingPick:0,lastPlayEvent:ev});
+          // Multiplayer: immediately broadcast win to all players
+          if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),50);
           return;
         }
         if(card.value==='WHOT'){set({players:pc,pile:newPile,topCard:card,currentSuit:ns,selectedCardIds:[],pendingPick:np,lastPlayEvent:ev,notification:{message:'SOL CARD! Choose a suit',type:'info'}});return;}
@@ -567,6 +569,7 @@ export const useGameStore = create<GameState>()(
             if(bc.hand.length===0){
               get().recordGameResult(false,6);
               set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,winner:bc,pendingPick:0,lastPlayEvent:ev});
+              if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),50);
               return;
             }
             set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,currentPlayerIndex:ni,pendingPick:np,lastPlayEvent:ev});
