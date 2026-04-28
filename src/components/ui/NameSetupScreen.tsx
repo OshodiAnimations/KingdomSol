@@ -7,13 +7,16 @@ export function NameSetupScreen() {
   const [name, setName] = useState('');
   const [selectedChar, setSelectedChar] = useState<CharacterKey>('okonkwo');
   const [error, setError] = useState('');
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [createdName, setCreatedName] = useState('');
 
   const handleCreate = () => {
     const trimmed = name.trim();
     if (trimmed.length < 2) { setError('Name must be at least 2 characters'); return; }
     if (trimmed.length > 16) { setError('Name must be 16 characters or less'); return; }
     if (!/^[a-zA-Z0-9_\- ]+$/.test(trimmed)) { setError('Letters, numbers, spaces, _ and - only'); return; }
-    createProfile(trimmed, selectedChar);
+    setCreatedName(trimmed);
+    setShowWelcome(true);
   };
 
   const char = CHARACTERS.find(c => c.key === selectedChar)!;
@@ -142,7 +145,56 @@ export function NameSetupScreen() {
 
       <style>{`
         @keyframes screen-enter { from{opacity:0;transform:scale(0.96) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        @keyframes welcome-pop { from{opacity:0;transform:scale(0.7) translateY(30px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        @keyframes welcome-glow { 0%,100%{box-shadow:0 0 40px rgba(232,184,75,0.3)} 50%{box-shadow:0 0 80px rgba(232,184,75,0.7),0 0 120px rgba(232,184,75,0.2)} }
       `}</style>
+
+      {/* Welcome popup */}
+      {showWelcome && (
+        <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.85)', backdropFilter:'blur(12px)', padding:24 }}>
+          <div style={{
+            maxWidth:460, width:'100%', padding:'48px 40px', borderRadius:24, textAlign:'center',
+            background:'linear-gradient(135deg, rgba(44,26,8,0.98), rgba(26,20,16,0.99))',
+            border:'2px solid rgba(232,184,75,0.4)',
+            boxShadow:'0 0 60px rgba(232,184,75,0.2)',
+            animation:'welcome-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+            {/* Crown icon */}
+            <div style={{ fontSize:72, marginBottom:20, filter:'drop-shadow(0 0 20px rgba(232,184,75,0.6))', animation:'float 3s ease-in-out infinite' }}>
+              👑
+            </div>
+
+            <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:700, color:'rgba(232,184,75,0.6)', letterSpacing:'0.25em', textTransform:'uppercase', marginBottom:14 }}>
+              Welcome to KingdomSol
+            </div>
+
+            <div style={{ fontFamily:'var(--font-display)', fontSize:'clamp(22px,5vw,32px)', fontWeight:900, letterSpacing:'0.06em', marginBottom:6 }}>
+              <span className="text-gold-shimmer">{createdName}</span>
+            </div>
+
+            <div style={{ fontFamily:'var(--font-body)', fontSize:17, color:'rgba(245,230,200,0.55)', lineHeight:1.7, marginBottom:32, maxWidth:340, margin:'12px auto 32px' }}>
+              It's time to reclaim your wealth from the Time Thief. The ancient kingdoms await your return.
+            </div>
+
+            {/* Character preview */}
+            <div style={{ display:'inline-flex', alignItems:'center', gap:12, padding:'12px 20px', borderRadius:14, background:`${char.accentColor}15`, border:`1.5px solid ${char.accentColor}33`, marginBottom:32 }}>
+              <span style={{ fontSize:28 }}>{char.icon}</span>
+              <div style={{ textAlign:'left' }}>
+                <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:900, color:char.accentColor, letterSpacing:'0.06em' }}>{char.name}</div>
+                <div style={{ fontFamily:'var(--font-body)', fontSize:12, color:'rgba(245,230,200,0.45)' }}>⚡ {char.ability}</div>
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              style={{ width:'100%', fontSize:16, padding:'16px', letterSpacing:'0.12em', fontWeight:900, animation:'welcome-glow 2s ease-in-out infinite' }}
+              onClick={() => { setShowWelcome(false); createProfile(createdName, selectedChar); }}
+            >
+              ENTER THE KINGDOM ⚔️
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

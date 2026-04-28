@@ -198,30 +198,29 @@ export function MenuScreen() {
         )}
 
         {/* ── JOIN A ROOM — always visible on main page ── */}
-        <div style={{ maxWidth:440, margin:'0 auto 28px', padding:'18px 20px', borderRadius:14, background:'rgba(26,20,16,0.75)', border:'1.5px solid rgba(153,69,255,0.2)', backdropFilter:'blur(10px)' }}>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'rgba(153,69,255,0.6)', letterSpacing:'0.2em', marginBottom:12, textAlign:'center' }}>
+        <div style={{ maxWidth:440, margin:'0 auto 28px', padding:'20px 22px', borderRadius:14, background:'rgba(26,20,16,0.75)', border:'1.5px solid rgba(153,69,255,0.2)', backdropFilter:'blur(10px)' }}>
+          <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'rgba(153,69,255,0.6)', letterSpacing:'0.2em', marginBottom:6, textAlign:'center' }}>
             🔗 JOIN A ROOM WITH CODE
           </div>
-          <div style={{ display:'flex', gap:10 }}>
-            <input
-              value={joinCode}
-              onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0,6))}
-              placeholder="ENTER 6-CHAR CODE"
-              maxLength={6}
-              style={{
-                flex:1, padding:'12px 16px', borderRadius:9,
-                background:'rgba(255,255,255,0.06)', border:'1.5px solid rgba(153,69,255,0.35)',
-                color:'#9945FF', fontFamily:'var(--font-display)', fontSize:20, fontWeight:900,
-                outline:'none', letterSpacing:'0.2em', textAlign:'center', boxSizing:'border-box' as const,
-              }}
-            />
-            <button className="btn-primary" style={{ fontSize:12, padding:'12px 20px', fontWeight:900, whiteSpace:'nowrap' as const, background:'linear-gradient(135deg,#9945FF,#6B2FCC)' }}
-              onClick={() => { if(joinCode.length>=4) joinWithCode(joinCode); }}
-            >JOIN ▶</button>
-          </div>
-          <div style={{ fontFamily:'var(--font-body)', fontSize:12, color:'rgba(245,230,200,0.3)', marginTop:8, textAlign:'center' }}>
+          <div style={{ fontFamily:'var(--font-body)', fontSize:12, color:'rgba(245,230,200,0.3)', marginBottom:14, textAlign:'center' }}>
             Get a code from a friend who created a room
           </div>
+          <input
+            value={joinCode}
+            onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0,6))}
+            placeholder="ENTER 6-CHAR CODE"
+            maxLength={6}
+            style={{
+              width:'100%', padding:'14px 16px', borderRadius:9, marginBottom:12,
+              background:'rgba(255,255,255,0.06)', border:'1.5px solid rgba(153,69,255,0.35)',
+              color:'#9945FF', fontFamily:'var(--font-display)', fontSize:22, fontWeight:900,
+              outline:'none', letterSpacing:'0.25em', textAlign:'center', boxSizing:'border-box' as const,
+            }}
+            onKeyDown={e => { if(e.key==='Enter' && joinCode.length>=4) joinWithCode(joinCode); }}
+          />
+          <button className="btn-primary" style={{ width:'100%', fontSize:13, padding:'13px', fontWeight:900, letterSpacing:'0.12em', background:'linear-gradient(135deg,#9945FF,#6B2FCC)' }}
+            onClick={() => { if(joinCode.length>=4) joinWithCode(joinCode); }}
+          >JOIN ROOM ▶</button>
         </div>
 
         {/* Devnet notice */}
