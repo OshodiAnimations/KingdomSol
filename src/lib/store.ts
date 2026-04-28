@@ -536,14 +536,23 @@ export const useGameStore = create<GameState>()(
         if(ci===hi||!players[ci]||s.winner||s.gameMode==='multiplayer')return;
         const bot=players[ci];
         const playable=bot.hand.filter(c=>s.topCard&&canPlay(c,s.topCard,s.currentSuit));
+        const isEasyBot=s.gameMode==='easy';
+        const isWarriorBot=s.gameMode==='warrior';
+        // Easy: bot draws 30% of the time even when it can play, slower thinking
+        const botDelay=isEasyBot?1800+Math.random()*1200:isWarriorBot?400+Math.random()*300:800+Math.random()*600;
         setTimeout(()=>{
           const ns=get();
           if(ns.winner||ns.currentPlayerIndex!==ci||ns.gameMode==='multiplayer')return;
           const pc=ns.players.map(p=>({...p,hand:[...p.hand]}));
           const bc=pc[ci];
           let ni=((ci+ns.direction)+pc.length)%pc.length;
-          if(playable.length>0&&ns.pendingPick===0){
-            const card=playable.find(c=>c.special==='pick4')||playable.find(c=>c.special==='pick2')||playable.find(c=>c.value==='WHOT')||playable[Math.floor(Math.random()*playable.length)];
+          // Easy bot: 30% chance to draw even if it can play (makes mistakes)
+          const easyMistake=isEasyBot&&Math.random()<0.30;
+          if(playable.length>0&&ns.pendingPick===0&&!easyMistake){
+            // Easy: picks worst card (regular, no specials). Warrior: picks best card (pick4 > pick2 > WHOT > regular)
+            const card=isEasyBot
+              ? playable.find(c=>!c.special&&c.value!=='WHOT')||playable[playable.length-1]  // Easy: play weakest
+              : playable.find(c=>c.special==='pick4')||playable.find(c=>c.special==='pick2')||playable.find(c=>c.value==='WHOT')||playable[Math.floor(Math.random()*playable.length)]; // Warrior: play strongest
             const idx=bc.hand.findIndex(c=>c.id===card.id);
             bc.hand.splice(idx,1);
             let np=ns.pendingPick;
@@ -567,8 +576,8 @@ export const useGameStore = create<GameState>()(
             bc.hand.push(...botDeck.slice(0,count));
             set({players:pc,deck:botDeck.slice(count),currentPlayerIndex:ni,pendingPick:0});
           }
-          if(ni!==ns.humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1000);
-        },800+Math.random()*600);
+          if(ni!==ns.humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),isEasyBot?1600:isWarriorBot?350:1000);
+        },botDelay);
       },
 
       generateInviteCode:(multiMode)=>{

@@ -310,3 +310,42 @@ body {
   font-weight: 900 !important;
   letter-spacing: 0.1em !important;
 }
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 640px) {
+  /* Smaller nav text */
+  .btn-primary { font-size: 12px !important; padding: 10px 16px !important; }
+  .btn-secondary { font-size: 11px !important; padding: 9px 14px !important; }
+
+  /* Game board mobile */
+  .hand-row { gap: 5px !important; }
+
+  /* Opponent cards smaller on mobile */
+  .opp-card { min-width: 90px !important; padding: 8px 10px !important; }
+
+  /* Center area tighter */
+  .center-area { gap: 16px !important; padding: 10px !important; }
+
+  /* Timer smaller */
+  .timer-circle { width: 44px !important; height: 44px !important; }
+
+  /* Player zone more compact */
+  .player-zone { padding: 8px 12px 16px !important; }
+
+  /* Menu cards wrap properly */
+  .mode-card { width: 140px !important; }
+
+  /* Wallet chip compact on mobile */
+  .wallet-chip { font-size: 10px !important; padding: 5px 10px !important; }
+
+  /* Lobby code bigger but box fits */
+  .lobby-code { font-size: 36px !important; letter-spacing: 0.2em !important; }
+
+  /* Profile stats 2 column on mobile */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (max-width: 400px) {
+  .btn-primary { font-size: 11px !important; padding: 9px 12px !important; }
+  .hand-row { gap: 4px !important; }
+}

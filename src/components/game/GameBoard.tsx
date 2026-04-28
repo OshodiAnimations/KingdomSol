@@ -113,10 +113,26 @@ export function GameBoard() {
     const card = humanPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
     if (selectedCardIds.includes(cardId)) {
+      // If WHOT/SOL CARD, show suit selector immediately before playing
+      if (card.value === 'WHOT') {
+        setShowSuitSelector(true);
+        return; // Wait for suit selection, then play
+      }
       playCard(cardId);
-      if (card.value === 'WHOT') setShowSuitSelector(true);
     } else {
       selectCard(cardId);
+    }
+  };
+
+  const handleSuitSelectedAndPlay = (suit: CardSuit) => {
+    setShowSuitSelector(false);
+    // Play the selected WHOT card first, then change suit
+    const whotCard = selectedCardIds[0];
+    if (whotCard) {
+      playCard(whotCard);
+      setTimeout(() => changeSuit(suit), 50);
+    } else {
+      changeSuit(suit);
     }
   };
 
@@ -160,7 +176,7 @@ export function GameBoard() {
           <div style={{
             padding: '5px 12px', borderRadius: 8,
             background: 'rgba(153,69,255,0.12)', border: '1px solid rgba(153,69,255,0.3)',
-            fontFamily: 'var(--font-display)', fontSize: 11, color: '#14F195', fontWeight: 700, letterSpacing: '0.05em',
+            fontFamily: 'var(--font-display)', fontSize: 'clamp(9px,2.5vw,11px)', color: '#14F195', fontWeight: 700, letterSpacing: '0.05em',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <span style={{ color: 'rgba(245,230,200,0.5)' }}>POT:</span>
@@ -221,8 +237,11 @@ export function GameBoard() {
       {/* ── OPPONENTS ── */}
       <div style={{
         position: 'relative', zIndex: 10,
-        display: 'flex', gap: 12, justifyContent: 'center',
-        padding: '12px 16px 6px', flexWrap: 'wrap',
+        display: 'flex', gap: 10, justifyContent: 'flex-start',
+        padding: '10px 12px 6px',
+        overflowX: 'auto', flexWrap: 'nowrap' as const,
+        WebkitOverflowScrolling: 'touch' as any,
+        scrollbarWidth: 'none' as const,
       }}>
         {opponents.map(opp => {
           const oppIdx = players.indexOf(opp);
@@ -263,7 +282,7 @@ export function GameBoard() {
       <div style={{
         flex: 1, position: 'relative', zIndex: 10,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 32, padding: '16px 20px',
+        gap: 'clamp(12px, 3vw, 32px)', padding: 'clamp(8px, 2vw, 16px) clamp(10px, 3vw, 20px)',
       }}>
         {/* Deck */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -375,9 +394,11 @@ export function GameBoard() {
 
         {/* Hand */}
         <div style={{
-          display:'flex', gap:10, overflowX:'auto', paddingBottom:4,
+          display:'flex', gap:8, overflowX:'auto', paddingBottom:8,
           scrollbarWidth:'none', justifyContent: humanPlayer.hand.length < 6 ? 'center' : 'flex-start',
           transition:'none',
+          WebkitOverflowScrolling:'touch', // momentum scroll on iOS
+          msOverflowStyle:'none',
         }}>
           {humanPlayer.hand.map((card, idx) => {
             const playable = isMyTurn && topCard
@@ -423,7 +444,7 @@ export function GameBoard() {
       {/* ── SUIT SELECTOR ── */}
       {showSuitSelector && (
         <div style={{ position:'fixed', inset:0, zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)' }}>
-          <SuitSelector onSelect={(suit) => { setShowSuitSelector(false); handleSuitSelect(suit); }} />
+          <SuitSelector onSelect={handleSuitSelectedAndPlay} />
         </div>
       )}
 

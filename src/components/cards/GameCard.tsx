@@ -73,10 +73,12 @@ const SPECIAL_LABELS: Record<string, string> = {
 };
 
 // SIZES: sm = opponent preview, md = hand cards on mobile, lg = main hand
+// Mobile gets smaller cards automatically
+const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 640;
 const DIMS = {
-  sm:  { w: 70,  h: 100, valSize: 14, symSize: 18, cornerSize: 12, cornerSym: 12, spSize: 8  },
-  md:  { w: 90,  h: 128, valSize: 18, symSize: 28, cornerSize: 14, cornerSym: 14, spSize: 9  },
-  lg:  { w: 115, h: 164, valSize: 24, symSize: 44, cornerSize: 17, cornerSym: 17, spSize: 11 },
+  sm:  { w: isMobileDevice?50:70,  h: isMobileDevice?72:100,  valSize: isMobileDevice?10:14, symSize: isMobileDevice?14:18, cornerSize: isMobileDevice?9:12,  cornerSym: isMobileDevice?9:12,  spSize: 7  },
+  md:  { w: isMobileDevice?62:90,  h: isMobileDevice?88:128,  valSize: isMobileDevice?13:18, symSize: isMobileDevice?20:28, cornerSize: isMobileDevice?11:14, cornerSym: isMobileDevice?11:14, spSize: 8  },
+  lg:  { w: isMobileDevice?78:115, h: isMobileDevice?112:164, valSize: isMobileDevice?16:24, symSize: isMobileDevice?30:44, cornerSize: isMobileDevice?12:17, cornerSym: isMobileDevice?12:17, spSize: 9  },
 };
 
 interface GameCardProps {
