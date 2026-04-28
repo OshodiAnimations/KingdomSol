@@ -114,7 +114,7 @@ export interface GameState {
   wallet: {
     connected: boolean;
     address: string | null;
-    provider: 'phantom'|'backpack' | null;
+    provider: 'phantom'|'backpack'|'solflare' | null;
     balances: Record<TokenSymbol, number>;
   };
 
@@ -130,7 +130,7 @@ export interface GameState {
   changeSuit: (suit: CardSuit) => void;
   useAbility: () => void;
   recordGameResult: (won: boolean, cardsPlayed: number, solChange: number) => void;
-  connectWallet: (provider: 'phantom'|'backpack') => void;
+  connectWallet: (provider: 'phantom'|'backpack'|'solflare') => void;
   disconnectWallet: () => void;
   setStake: (token: TokenSymbol, amount: string) => void;
   toggleWalletModal: () => void;

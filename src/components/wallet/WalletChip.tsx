@@ -14,6 +14,10 @@ const TOKEN_INFO: Record<TokenSymbol, { name: string; icon: string; color: strin
 
 export function WalletChip({ compact = false }: { compact?: boolean }) {
   const { wallet, toggleWalletModal } = useGameStore();
+  const [showFull, setShowFull] = useState(false);
+
+  const providerIcon = wallet.provider === 'phantom' ? '👻' : wallet.provider === 'backpack' ? '🎒' : '🔥';
+  const providerColor = wallet.provider === 'phantom' ? '#AB9FF2' : wallet.provider === 'backpack' ? '#E33E3F' : '#FC8E02';
 
   if (!wallet.connected) {
     return (
@@ -26,19 +30,21 @@ export function WalletChip({ compact = false }: { compact?: boolean }) {
   }
 
   const addr = wallet.address!;
-  const short = `${addr.slice(0, 4)}…${addr.slice(-4)}`;
+  const short = `${addr.slice(0, 6)}…${addr.slice(-6)}`;
 
   return (
-    <button className="wallet-chip" onClick={toggleWalletModal} style={{ gap: compact ? 6 : 10 }}>
-      <span style={{
-        width: 8, height: 8, borderRadius: '50%',
-        background: '#14F195', display: 'inline-block',
-        boxShadow: '0 0 8px rgba(20,241,149,0.8)',
-      }} />
-      {!compact && <span style={{ color: 'rgba(245,230,200,0.6)', fontSize: 11 }}>{wallet.provider}</span>}
-      <span style={{ color: '#14F195' }}>{short}</span>
+    <button className="wallet-chip" onClick={toggleWalletModal}
+      onMouseEnter={() => setShowFull(true)}
+      onMouseLeave={() => setShowFull(false)}
+      title={addr}
+      style={{ gap: compact ? 6 : 10, position: 'relative' }}>
+      <span style={{ width:8, height:8, borderRadius:'50%', background:'#14F195', display:'inline-block', boxShadow:'0 0 8px rgba(20,241,149,0.8)', flexShrink:0 }} />
+      {!compact && <span style={{ fontSize:15 }}>{providerIcon}</span>}
+      <span style={{ color:'#14F195', fontFamily:'var(--font-mono)', fontSize:compact?10:11 }}>
+        {showFull && !compact ? addr.slice(0,8)+'…'+addr.slice(-8) : short}
+      </span>
       {!compact && (
-        <span style={{ color: '#9945FF', fontWeight: 700 }}>
+        <span style={{ color:providerColor, fontWeight:700, fontFamily:'var(--font-mono)', fontSize:11 }}>
           ◎ {wallet.balances.SOL.toFixed(2)}
         </span>
       )}
@@ -50,11 +56,11 @@ export function WalletChip({ compact = false }: { compact?: boolean }) {
 
 export function WalletModal() {
   const { wallet, showWalletModal, toggleWalletModal, connectWallet, disconnectWallet, stakeToken, stakeAmount, setStake } = useGameStore();
-  const [connectingTo, setConnectingTo] = useState<'phantom' | 'backpack' | null>(null);
+  const [connectingTo, setConnectingTo] = useState<'phantom' | 'backpack' | 'solflare' | null>(null);
 
   if (!showWalletModal) return null;
 
-  const handleConnect = async (provider: 'phantom' | 'backpack') => {
+  const handleConnect = async (provider: 'phantom' | 'backpack' | 'solflare') => {
     setConnectingTo(provider);
     await new Promise(r => setTimeout(r, 1200)); // Simulate connect
     connectWallet(provider);
@@ -165,16 +171,19 @@ export function WalletModal() {
               border: '1px solid rgba(153,69,255,0.2)',
               display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <span style={{ fontSize: 16 }}>{wallet.provider === 'phantom' ? '👻' : '🎒'}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#9945FF', letterSpacing: '0.05em' }}>
-                  {wallet.provider?.toUpperCase()}
+              <span style={{ fontSize: 16 }}>{wallet.provider === 'phantom' ? '👻' : wallet.provider === 'backpack' ? '🎒' : '🔥'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight:900, color: wallet.provider === 'phantom' ? '#AB9FF2' : wallet.provider === 'backpack' ? '#E33E3F' : '#FC8E02', letterSpacing: '0.08em' }}>
+                    {wallet.provider?.toUpperCase()} · DEVNET
+                  </div>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#14F195', boxShadow: '0 0 6px rgba(20,241,149,0.8)', flexShrink:0 }} />
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(245,230,200,0.5)', marginTop: 2 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(245,230,200,0.5)', wordBreak:'break-all' as const }}>
                   {wallet.address}
                 </div>
               </div>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#14F195', boxShadow: '0 0 8px rgba(20,241,149,0.8)' }} />
+              <button onClick={() => navigator.clipboard.writeText(wallet.address || '').catch(()=>{})} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'rgba(245,230,200,0.5)', fontSize:11, flexShrink:0 }} title="Copy address">📋</button>
             </div>
 
             {/* Balances */}
