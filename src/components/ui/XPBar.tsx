@@ -106,8 +106,8 @@ export function ProfileScreen() {
                   <div style={{ fontFamily:'var(--font-mono)', fontSize:13, color:'rgba(245,230,200,0.7)', textAlign:'right' }}>
                     {typeof wallet.balances[symbol] === 'number'
                       ? wallet.balances[symbol] > 10000
-                        ? wallet.balances[symbol].toLocaleString()
-                        : wallet.balances[symbol].toFixed ? wallet.balances[symbol].toFixed(3) : wallet.balances[symbol]
+                        ? Math.floor(wallet.balances[symbol]).toLocaleString()
+                        : (wallet.balances[symbol] as number).toFixed(3)
                       : '0'}
                   </div>
                 </div>
