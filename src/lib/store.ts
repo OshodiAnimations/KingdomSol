@@ -215,6 +215,31 @@ function generateCode():string{
   return Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
 }
 
+// Broadcasts current game state to Supabase for multiplayer sync
+async function broadcastIfMultiplayer(get: () => GameState) {
+  const s = get();
+  if (s.gameMode !== 'multiplayer' || !s.inviteCode) return;
+  try {
+    const { broadcastGameState } = await import('@/lib/supabase');
+    await broadcastGameState(s.inviteCode, {
+      pile: s.pile,
+      topCard: s.topCard,
+      currentSuit: s.currentSuit || s.topCard?.suit || 'cowrie',
+      currentPlayerIndex: s.currentPlayerIndex,
+      direction: s.direction,
+      pendingPick: s.pendingPick,
+      winner: s.winner?.id || null,
+      hands: Object.fromEntries(s.players.map(p => [p.id, p.hand])),
+      playerOrder: s.players.map(p => p.id),
+      playerNames: Object.fromEntries(s.players.map(p => [p.id, p.name])),
+      deck: s.deck,
+      multiMode: s.multiMode || 'war',
+      stakeToken: s.stakeToken,
+      stakeAmount: s.stakeAmount,
+    });
+  } catch {}
+}
+
 export const useGameStore = create<GameState>()(
   persist(
     (set,get)=>({
