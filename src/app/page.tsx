@@ -90,6 +90,8 @@ export default function Home() {
       {screen === 'board'      && <GameBoard />}
       {screen === 'profile'    && <ProfileScreen />}
       {screen === 'lobby'      && <LobbyScreen />}
+      {screen === 'tutorial'   && <TutorialScreen />}
+      {screen === 'leaderboard' && <LeaderboardScreen />}
       {showWalletModal         && <WalletModal />}
     </main>
   );

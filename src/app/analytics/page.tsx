@@ -173,9 +173,9 @@ export default function AnalyticsDashboard() {
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:20 }}>
               {[
-                { label:'Waiting for players', value: data?.waitingRooms || 0, color:'#E8B84B' },
-                { label:'Active games', value: data?.activeGames || 0, color:'#14F195' },
-                { label:'Completed games', value: data?.completedGames || 0, color:'rgba(245,230,200,0.4)' },
+                { label:'Waiting for players (today)', value: data?.waitingRooms || 0, color:'#E8B84B' },
+                { label:'Active games (last 10 min)', value: data?.activeGames || 0, color:'#14F195' },
+                { label:'Completed all time', value: data?.completedGames || 0, color:'rgba(245,230,200,0.4)' },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }} />
@@ -186,7 +186,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* Mode breakdown */}
-            <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.12em', marginBottom:10 }}>BY MODE</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.12em', marginBottom:10 }}>BY MODE (TODAY)</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {Object.entries(data?.modeCounts || {}).map(([mode, count]) => (
                 <div key={mode} style={{ padding:'4px 10px', borderRadius:20, background:`${modeColors[mode] || '#9945FF'}18`, border:`1px solid ${modeColors[mode] || '#9945FF'}44`, fontSize:12, fontWeight:700, color:modeColors[mode] || '#9945FF' }}>

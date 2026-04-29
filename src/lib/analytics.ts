@@ -116,11 +116,30 @@ export async function fetchAnalyticsSummary() {
     ]);
 
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const thisWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const twoMinsAgo = new Date(now.getTime() - 2 * 60 * 1000);
     const roomsData = rooms.data || [];
     const eventsData = events.data || [];
     const sessionsData = sessions.data || [];
+
+    // Rooms created today only
+    const roomsToday = roomsData.filter(r => new Date(r.created_at) >= todayStart);
+
+    // Active games = status 'playing' AND updated in last 10 minutes (not stale)
+    const tenMinsAgo = new Date(now.getTime() - 10 * 60 * 1000);
+    const activeGames = roomsData.filter(r =>
+      r.status === 'playing' &&
+      new Date(r.updated_at || r.created_at) >= tenMinsAgo
+    );
+
+    // Waiting rooms = status 'waiting' AND created today (not old abandoned rooms)
+    const waitingRooms = roomsData.filter(r =>
+      r.status === 'waiting' &&
+      new Date(r.created_at) >= todayStart
+    );
+
+    // Completed = finished status
+    const completedGames = roomsData.filter(r => r.status === 'finished');
 
     return {
       // Users
@@ -128,21 +147,21 @@ export async function fetchAnalyticsSummary() {
       activeNow: sessionsData.length,
       activeSessions: sessionsData,
 
-      // Rooms
+      // Rooms — accurate counts
       totalRooms: roomsData.length,
-      roomsToday: roomsData.filter(r => new Date(r.created_at) >= today).length,
-      activeGames: roomsData.filter(r => r.status === 'playing').length,
-      completedGames: roomsData.filter(r => r.status === 'finished').length,
-      waitingRooms: roomsData.filter(r => r.status === 'waiting').length,
+      roomsToday: roomsToday.length,
+      activeGames: activeGames.length,
+      completedGames: completedGames.length,
+      waitingRooms: waitingRooms.length,
 
-      // Mode breakdown
-      modeCounts: roomsData.reduce((acc: Record<string, number>, r) => {
+      // Mode breakdown — today only for relevance
+      modeCounts: roomsToday.reduce((acc: Record<string, number>, r) => {
         acc[r.mode] = (acc[r.mode] || 0) + 1;
         return acc;
       }, {}),
 
       // Events
-      gamesStartedToday: eventsData.filter(e => e.event_type === 'game_start' && new Date(e.created_at) >= today).length,
+      gamesStartedToday: eventsData.filter(e => e.event_type === 'game_start' && new Date(e.created_at) >= todayStart).length,
       walletConnections: eventsData.filter(e => e.event_type === 'wallet_connect').length,
       tutorialStarts: eventsData.filter(e => e.event_type === 'tutorial_start').length,
       stakesPlaced: eventsData.filter(e => e.event_type === 'stake_placed').length,
