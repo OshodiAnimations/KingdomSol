@@ -212,11 +212,11 @@ export function TutorialScreen() {
               </div>
               <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.12em', marginBottom:4 }}>YOUR HAND — tap the matching card:</div>
               <div style={{ display:'flex', gap:8 }}>
-                {[
-                  { id:'c1', suit:'bead' as CardSuit, value:'3' },
-                  { id:'c2', suit:'manilla' as CardSuit, value:'9' },
-                  { id:'c3', suit:'cowrie' as CardSuit, value:'11' },
-                ].map(card => (
+                {([
+                  { id:'c1', suit:'bead' as CardSuit, value:'3' as const },
+                  { id:'c2', suit:'manilla' as CardSuit, value:'9' as const },
+                  { id:'c3', suit:'cowrie' as CardSuit, value:'11' as const },
+                ] as any[]).map((card: any) => (
                   <div key={card.id} onClick={() => { if(card.suit==='manilla') setTapped(true); }}
                     style={{ cursor:'pointer', transform: tapped && card.suit==='manilla' ? 'translateY(-12px) scale(1.05)' : '', transition:'transform 0.2s' }}>
                     <GameCard card={card} size="md" isPlayable={card.suit==='manilla'} isSelected={tapped && card.suit==='manilla'} />
@@ -236,11 +236,11 @@ export function TutorialScreen() {
               </div>
               <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.12em', marginBottom:4 }}>YOUR HAND — tap the matching card:</div>
               <div style={{ display:'flex', gap:8 }}>
-                {[
-                  { id:'d1', suit:'amole' as CardSuit, value:'5' as any, special:'pick4' as any },
-                  { id:'d2', suit:'manilla' as CardSuit, value:'9' as any },
-                  { id:'d3', suit:'cowrie' as CardSuit, value:'3' as any },
-                ].map(card => (
+                {([
+                  { id:'d1', suit:'amole' as CardSuit, value:'5' as const, special:'pick4' as const },
+                  { id:'d2', suit:'manilla' as CardSuit, value:'9' as const },
+                  { id:'d3', suit:'cowrie' as CardSuit, value:'3' as const },
+                ] as any[]).map((card: any) => (
                   <div key={card.id} onClick={() => { if(card.value==='5') setTapped(true); }}
                     style={{ cursor:'pointer', transform: tapped && card.value==='5' ? 'translateY(-12px) scale(1.05)' : '', transition:'transform 0.2s' }}>
                     <GameCard card={card} size="md" isPlayable={card.value==='5'} isSelected={tapped && card.value==='5'} />
