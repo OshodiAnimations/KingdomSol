@@ -96,16 +96,27 @@ export function useMultiplayerSync() {
   function handleRoomUpdate(room: any) {
     const myPlayerId = myPlayerIdRef.current;
 
-    // Fix 2 & 3: Room status = 'finished' means someone won or left
     if (room?.status === 'finished') {
       const shared = room.game_state as SharedGameState | null;
       if (shared?.winner) {
-        // Apply the final state so winner is set, then screens show correctly
+        // Apply final state — this sets winner in store which triggers win/loss screen
         applyIncomingState(shared);
+        // Force winner state to be set with correct player object
+        setTimeout(() => {
+          const state = useGameStore.getState();
+          if (!state.winner && shared.winner) {
+            const winnerPlayer = state.players.find(p => p.id === shared.winner) || {
+              id: shared.winner,
+              name: shared.playerNames?.[shared.winner] || 'Winner',
+              avatar: '👑', character: 'okonkwo' as const,
+              hand: [], xp: 0, level: 1, solBalance: 0, isBot: false, abilityUsed: false,
+            };
+            useGameStore.setState({ winner: winnerPlayer });
+          }
+        }, 200);
       } else {
-        // No winner data — just go to menu
         useGameStore.setState({
-          notification: { message: 'Game ended.', type: 'info' },
+          notification: { message: 'Game ended — a player disconnected.', type: 'info' },
           screen: 'menu',
         });
       }
@@ -143,8 +154,13 @@ export function useMultiplayerSync() {
 
     if (remaining.length === 1 && remaining[0] === myPlayerId) {
       // Fix 1: I am the LAST player remaining — I win immediately
-      const myPlayer = state.players.find(p => p.id === myPlayerId) || state.players[state.humanPlayerIndex];
+      const myPlayer = state.players.find(p => p.id === myPlayerId)
+        || state.players[state.humanPlayerIndex]
+        || state.players[0];
       if (!myPlayer) return;
+
+      // Set winner locally FIRST so win screen shows immediately
+      useGameStore.setState({ winner: myPlayer });
 
       // Build final winner state
       const winnerState: SharedGameState = {
@@ -168,14 +184,12 @@ export function useMultiplayerSync() {
       const { broadcastGameState } = await import('@/lib/supabase');
       await broadcastGameState(inviteCode!, winnerState);
 
-      // Mark room finished
+      // Mark room finished in Supabase
       await supabase.from('rooms')
         .update({ status: 'finished', game_state: winnerState, updated_at: new Date().toISOString() })
         .eq('code', inviteCode!);
 
-      // Set winner locally
-      useGameStore.setState({ winner: myPlayer });
-      return;
+      return; // winner already set above
     }
 
     // 3+ players: remove disconnected player from order, continue game

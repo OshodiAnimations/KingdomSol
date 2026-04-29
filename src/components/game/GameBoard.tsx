@@ -111,10 +111,8 @@ export function GameBoard() {
   useEffect(() => {
     if (!notification) return;
     // SOL CARD notification triggers suit selector
-    // Only show suit selector from notification if it's our turn AND we played last
-    const lastEvent = useGameStore.getState().lastPlayEvent as any;
-    const weTriggered = !isMultiplayer || (lastEvent?.playerId === playerId);
-    if ((notification.message.includes('SOL CARD') || notification.message.includes('Choose a suit')) && isMyTurn && !showSuitSelector && weTriggered) {
+    // Show suit selector from notification only if it's OUR turn and not already showing
+    if (notification.message === 'SOL CARD! Choose a suit' && isMyTurn && !showSuitSelector) {
       setShowSuitSelector(true);
     }
     const t = setTimeout(() => setNotification(null), 3000);
@@ -194,35 +192,16 @@ export function GameBoard() {
     if (!isMyTurn || winner) return;
     const card = humanPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
-
-    if (selectedCardIds.includes(cardId)) {
-      // SOL CARD (WHOT): show suit selector FIRST, then play after suit chosen
-      if (card.value === 'WHOT') {
-        setPendingWhotCard(cardId);
-        setShowSuitSelector(true);
-        return;
-      }
-      // Regular card: play immediately
-      playCard(cardId);
-    } else {
-      selectCard(cardId);
-    }
+    // Just select — play via PLAY CARD button or double-tap
+    selectCard(cardId);
   };
 
   // ── Suit selected handler ──────────────────────────────────────────────────
   const handleSuitSelected = (suit: CardSuit) => {
     setShowSuitSelector(false);
-
-    if (pendingWhotCard) {
-      // Play the SOL CARD, then immediately set the suit
-      playCard(pendingWhotCard);
-      setPendingWhotCard(null);
-      // Small delay to let playCard update state first
-      setTimeout(() => changeSuit(suit), 80);
-    } else {
-      // Already played (e.g. from notification trigger)
-      changeSuit(suit);
-    }
+    setPendingWhotCard(null);
+    // changeSuit handles advancing turn using stored __whotNextIdx
+    changeSuit(suit);
   };
 
   // ── Draw card with pop animation ──────────────────────────────────────────
@@ -440,12 +419,16 @@ export function GameBoard() {
               {selectedCardIds.length > 0 && (
                 <button className="btn-primary" style={{ fontSize:12, padding:'9px 26px', fontWeight:900, letterSpacing:'0.08em' }}
                   onClick={() => {
-                    const card = humanPlayer.hand.find(c => c.id === selectedCardIds[0]);
-                    if (card?.value === 'WHOT') {
-                      setPendingWhotCard(selectedCardIds[0]);
-                      setShowSuitSelector(true);
+                    const cardId = selectedCardIds[0];
+                    const card = humanPlayer.hand.find(c => c.id === cardId);
+                    if (!card) return;
+                    if (card.value === 'WHOT') {
+                      // For WHOT: play the card first (advances to suit-pick state), then show selector
+                      playCard(cardId);
+                      setPendingWhotCard(cardId);
+                      setTimeout(() => setShowSuitSelector(true), 50);
                     } else {
-                      playCard(selectedCardIds[0]);
+                      playCard(cardId);
                     }
                   }}>
                   PLAY CARD ▶

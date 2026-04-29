@@ -525,20 +525,37 @@ export const useGameStore = create<GameState>()(
           if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),50);
           return;
         }
-        if(card.value==='WHOT'){set({players:pc,pile:newPile,topCard:card,currentSuit:ns,selectedCardIds:[],pendingPick:np,lastPlayEvent:ev,notification:{message:'SOL CARD! Choose a suit',type:'info'}});return;}
         let ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         if(card.special==='hold_on'||card.special==='suspension')ni=((ni+direction)+pc.length)%pc.length;
+        if(card.value==='WHOT'){
+          // Hold at current player until suit is chosen — store nextPlayerIndex for changeSuit to use
+          set({players:pc,pile:newPile,topCard:card,currentSuit:ns,selectedCardIds:[],pendingPick:np,lastPlayEvent:ev,
+            notification:{message:'SOL CARD! Choose a suit',type:'info'},
+            // Store intended next player in pendingNextPlayer (reuse direction field temporarily isn't safe, use a dedicated approach)
+            // We keep currentPlayerIndex as humanPlayerIndex and changeSuit advances it
+            currentPlayerIndex:humanPlayerIndex,
+          });
+          // Store next index for changeSuit to use
+          if(typeof window!=='undefined') (window as any).__whotNextIdx = ni;
+          if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
+          return;
+        }
         set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,pendingPick:np,selectedCardIds:[],lastPlayEvent:ev});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
         else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
 
       changeSuit:(suit)=>{
-        const{direction,players,humanPlayerIndex,gameMode}=get();
-        const ni=((humanPlayerIndex+direction)+players.length)%players.length;
+        const{players,humanPlayerIndex,gameMode}=get();
+        // Use the next index stored when WHOT was played, fallback to computing it
+        const storedNext = typeof window!=='undefined' ? (window as any).__whotNextIdx : null;
+        const direction = get().direction;
+        const ni = (storedNext !== null && storedNext !== undefined)
+          ? storedNext
+          : ((humanPlayerIndex+direction)+players.length)%players.length;
+        if(typeof window!=='undefined') (window as any).__whotNextIdx = null;
         set({currentSuit:suit,currentPlayerIndex:ni,notification:null});
         if(gameMode==='multiplayer'){
-          // In multiplayer: broadcast new state to all players
           setTimeout(()=>broadcastIfMultiplayer(get),100);
         } else if(ni!==humanPlayerIndex){
           setTimeout(()=>get().botTurn(),1200);
@@ -560,8 +577,13 @@ export const useGameStore = create<GameState>()(
           const {pile} = get();
           const topCard = pile[pile.length - 1];
           const reshuffled = createDeck();
+          // Keep top card on pile, reshuffle rest as new deck
           activeDeck = reshuffled;
-          set({ pile: topCard ? [topCard] : [], deck: reshuffled, notification: { message: '🔀 Deck reshuffled!', type: 'info' } });
+          set({
+            pile: topCard ? [topCard] : [],
+            deck: reshuffled,
+            notification: { message: '🔀 Deck reshuffled!', type: 'info' }
+          });
         }
         const count=pendingPick>0?pendingPick:1;
         const pc=players.map(p=>({...p,hand:[...p.hand]}));
@@ -614,7 +636,8 @@ export const useGameStore = create<GameState>()(
             let botDeck = ns.deck;
             if (botDeck.length < 2) {
               botDeck = createDeck();
-              set({ pile: ns.pile.slice(-1), notification: { message: '🔀 Deck reshuffled!', type: 'info' } });
+              const topPile = ns.pile[ns.pile.length - 1];
+              set({ pile: topPile ? [topPile] : [], deck: botDeck, notification: { message: '🔀 Deck reshuffled!', type: 'info' } });
             }
             bc.hand.push(...botDeck.slice(0,count));
             set({players:pc,deck:botDeck.slice(count),currentPlayerIndex:ni,pendingPick:0});
