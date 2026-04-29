@@ -269,6 +269,69 @@ export async function leaveRoom(code: string, playerId: string) {
 // Called when a player disconnects mid-game
 // If 2 players: game stops, other player wins
 // If 3+ players: last standing player wins all stakes
+// ── Player Stats (global leaderboard) ────────────────────────────────────────
+
+export interface PlayerStatRow {
+  player_id: string;
+  player_name: string;
+  character_key: string;
+  avatar_symbol: string;
+  xp: number;
+  level: number;
+  games_played: number;
+  games_won: number;
+  games_lost: number;
+  win_streak: number;
+  best_streak: number;
+  cards_played: number;
+  ksl_earned: number;
+  sol_earned: number;
+  multiplayer_wins: number;
+  solo_wins: number;
+  wallet_address?: string;
+  last_played: string;
+}
+
+export async function upsertPlayerStats(stats: Partial<PlayerStatRow> & { player_id: string; player_name: string }) {
+  try {
+    const { error } = await supabase
+      .from('player_stats')
+      .upsert({
+        ...stats,
+        last_played: new Date().toISOString(),
+      }, { onConflict: 'player_id' });
+    if (error) console.error('upsertPlayerStats error:', error);
+  } catch (e) {
+    console.error('upsertPlayerStats exception:', e);
+  }
+}
+
+export async function fetchGlobalLeaderboard(limit = 50): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('global_leaderboard')
+      .select('*')
+      .order('xp', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.error('fetchGlobalLeaderboard error:', e);
+    return [];
+  }
+}
+
+export async function fetchPlayerRank(playerId: string): Promise<number | null> {
+  try {
+    const { data } = await supabase
+      .from('global_leaderboard')
+      .select('rank, player_id')
+      .eq('player_id', playerId)
+      .single();
+    return data?.rank || null;
+  } catch { return null; }
+}
+
 export async function handlePlayerDisconnect(code: string, disconnectedPlayerId: string, currentState: SharedGameState) {
   const remaining = currentState.playerOrder.filter(id => id !== disconnectedPlayerId);
   

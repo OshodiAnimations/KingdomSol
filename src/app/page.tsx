@@ -8,6 +8,7 @@ import { GameBoard } from '@/components/game/GameBoard';
 import { ProfileScreen } from '@/components/ui/XPBar';
 import { LobbyScreen } from '@/components/ui/LobbyScreen';
 import { TutorialScreen } from '@/components/ui/TutorialScreen';
+import { LeaderboardScreen } from '@/components/ui/LeaderboardScreen';
 import { trackVisit, updateSession, removeSession, trackEvent } from '@/lib/analytics';
 import { WalletModal } from '@/components/wallet/WalletChip';
 

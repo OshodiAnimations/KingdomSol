@@ -6,7 +6,7 @@ export type CardSuit = 'manilla' | 'amole' | 'spearhead' | 'bead' | 'cowrie';
 export type CardValue = '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'10'|'11'|'12'|'13'|'14'|'WHOT';
 export type GameMode = 'story' | 'multiplayer' | 'classic' | 'easy' | 'warrior';
 export type MultiMode = 'war' | 'friendly' | 'raid';
-export type Screen = 'loading' | 'name_setup' | 'menu' | 'board' | 'profile' | 'lobby' | 'tutorial';
+export type Screen = 'loading' | 'name_setup' | 'menu' | 'board' | 'profile' | 'lobby' | 'tutorial' | 'leaderboard';
 export type TokenSymbol = 'SOL' | 'USDC' | 'BONK' | 'JUP' | 'WIF' | 'KSL';
 
 export interface Card {
@@ -315,35 +315,56 @@ export const useGameStore = create<GameState>()(
       },
 
       recordGameResult:(won,cardsPlayed)=>{
-        const{profile,gameMode,playerStakes,humanPlayerIndex,players}=get();
+        const{profile,gameMode,playerStakes,humanPlayerIndex,players,wallet}=get();
         if(!profile)return;
         const xpGain=won?100+cardsPlayed*3:20+cardsPlayed;
         const newXp=profile.xp+xpGain;
+        const newLevel=levelFromXp(newXp);
         const newStreak=won?profile.winStreak+1:0;
         const myStake=playerStakes.find(s=>s.playerId==='human');
         const stakeAmt=parseFloat(myStake?.amount||'0');
 
-        // For story/classic: XP gain on win, token loss on loss
         let kslChange=0;
         if(gameMode!=='multiplayer'){
-          if(won){kslChange=0;}// XP only
-          else if(stakeAmt>0&&myStake?.token==='KSL'){kslChange=-stakeAmt;}
+          if(!won&&stakeAmt>0&&myStake?.token==='KSL'){kslChange=-stakeAmt;}
         }
 
-        set({
-          profile:{
-            ...profile,
-            gamesPlayed:profile.gamesPlayed+1,
-            gamesWon:profile.gamesWon+(won?1:0),
-            xp:newXp,level:levelFromXp(newXp),
-            cardsPlayed:profile.cardsPlayed+cardsPlayed,
-            winStreak:newStreak,
-            bestStreak:Math.max(profile.bestStreak,newStreak),
-            kslBalance:Math.max(0,profile.kslBalance+kslChange),
-            multiplayerGamesPlayed:profile.multiplayerGamesPlayed+(gameMode==='multiplayer'?1:0),
-          }
-        });
+        const updatedProfile={
+          ...profile,
+          gamesPlayed:profile.gamesPlayed+1,
+          gamesWon:profile.gamesWon+(won?1:0),
+          xp:newXp,level:newLevel,
+          cardsPlayed:profile.cardsPlayed+cardsPlayed,
+          winStreak:newStreak,
+          bestStreak:Math.max(profile.bestStreak,newStreak),
+          kslBalance:Math.max(0,profile.kslBalance+kslChange),
+          multiplayerGamesPlayed:profile.multiplayerGamesPlayed+(gameMode==='multiplayer'?1:0),
+        };
+
+        set({profile:updatedProfile});
         get().updateLeaderboard();
+
+        // Sync to Supabase global leaderboard
+        import('@/lib/supabase').then(({upsertPlayerStats,getPlayerId})=>{
+          const pid=getPlayerId();
+          upsertPlayerStats({
+            player_id:pid,
+            player_name:profile.name,
+            character_key:profile.character,
+            avatar_symbol:profile.avatarSymbol||'👑',
+            xp:newXp,
+            level:newLevel,
+            games_played:updatedProfile.gamesPlayed,
+            games_won:updatedProfile.gamesWon,
+            games_lost:updatedProfile.gamesPlayed-updatedProfile.gamesWon,
+            win_streak:newStreak,
+            best_streak:updatedProfile.bestStreak,
+            cards_played:updatedProfile.cardsPlayed,
+            multiplayer_wins:gameMode==='multiplayer'&&won?updatedProfile.multiplayerGamesPlayed:0,
+            solo_wins:gameMode!=='multiplayer'&&won?updatedProfile.gamesWon:0,
+            wallet_address:wallet?.address||undefined,
+          });
+        }).catch(()=>{});
       },
 
       setAvatar:(avatarUrl, avatarSymbol)=>{

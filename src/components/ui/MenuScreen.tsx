@@ -193,37 +193,13 @@ export function MenuScreen() {
           🧪 SOLANA DEVNET · Free SOL at faucet.solana.com
         </div>
 
-        {/* LEADERBOARD */}
-        {leaderboard.length > 0 && (
-          <div style={{ maxWidth:560, margin:'0 auto 40px', padding:'20px', borderRadius:16, background:'rgba(26,20,16,0.8)', border:'1.5px solid rgba(232,184,75,0.12)', backdropFilter:'blur(10px)', textAlign:'left' }}>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:12, fontWeight:900, color:'rgba(232,184,75,0.6)', letterSpacing:'0.2em', marginBottom:14, textAlign:'center' }}>
-              🏆 LEADERBOARD — TOP XP
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              {leaderboard.slice(0,8).map((entry, i) => {
-                const eChar = CHARACTERS.find(c => c.key === entry.character) || CHARACTERS[0];
-                const isMe = entry.name === profile?.name;
-                return (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 12px', borderRadius:8, background:isMe?`${eChar.accentColor}12`:'rgba(255,255,255,0.03)', border:`1px solid ${isMe?eChar.accentColor+'33':'rgba(255,255,255,0.05)'}` }}>
-                    <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:900, color:i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':'rgba(245,230,200,0.4)', minWidth:22 }}>
-                      {i===0?'👑':i===1?'🥈':i===2?'🥉':`#${i+1}`}
-                    </div>
-                    <span style={{ fontSize:18 }}>{eChar.icon}</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:'var(--font-display)', fontSize:12, fontWeight:900, color:isMe?eChar.accentColor:'rgba(245,230,200,0.8)', letterSpacing:'0.04em' }}>
-                        {entry.name} {isMe&&<span style={{ fontSize:9, color:'rgba(245,230,200,0.4)' }}>(you)</span>}
-                      </div>
-                      <div style={{ fontFamily:'var(--font-body)', fontSize:11, color:'rgba(245,230,200,0.4)' }}>
-                        {entry.gamesWon}W · Streak {entry.winStreak}
-                      </div>
-                    </div>
-                    <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:900, color:'#9945FF' }}>{entry.xp.toLocaleString()} XP</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* LEADERBOARD BUTTON */}
+        <div style={{ maxWidth:440, margin:'0 auto 28px', textAlign:'center' }}>
+          <button className="btn-secondary" style={{ width:'100%', fontSize:13, padding:'14px', fontWeight:900, letterSpacing:'0.1em', border:'1.5px solid rgba(232,184,75,0.3)', background:'rgba(232,184,75,0.06)', color:'#E8B84B' }}
+            onClick={() => useGameStore.getState().setScreen('leaderboard')}>
+            🏆 VIEW GLOBAL LEADERBOARD
+          </button>
+        </div>
       </div>
 
       {/* WALLET GATE MODAL */}
