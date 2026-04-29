@@ -111,7 +111,7 @@ export async function fetchAnalyticsSummary() {
       supabase.from('active_sessions')
         .select('visitor_id, player_name, current_screen, game_mode, last_heartbeat')
         .gt('last_heartbeat', new Date(Date.now() - 2 * 60 * 1000).toISOString()), // last 2 minutes
-      supabase.from('rooms').select('code, mode, status, created_at', { count: 'exact' }),
+      supabase.from('rooms').select('code, mode, status, created_at, updated_at', { count: 'exact' }),
       supabase.from('analytics_events').select('event_type, created_at').order('created_at', { ascending: false }).limit(500),
     ]);
 
