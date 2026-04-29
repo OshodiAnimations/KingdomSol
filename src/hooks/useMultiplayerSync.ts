@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { useGameStore, CHARACTERS } from '@/lib/store';
-import { supabase, getPlayerId, SharedGameState, handlePlayerDisconnect, leaveRoom } from '@/lib/supabase';
+import { supabase, getPlayerId, SharedGameState, leaveRoom } from '@/lib/supabase';
 import type { Card, CardSuit, Player } from '@/lib/store';
 
 export function useMultiplayerSync() {
@@ -11,9 +11,9 @@ export function useMultiplayerSync() {
   const lastAppliedRef = useRef<string>('');
   const applyingRef = useRef(false);
 
+  // ── Core: apply incoming shared state ──────────────────────────────────────
   function applyIncomingState(shared: SharedGameState) {
-    // Deduplicate: skip if we already applied this exact state
-    const stateKey = `${shared.currentPlayerIndex}-${shared.pile.length}-${shared.winner || ''}`;
+    const stateKey = `${shared.currentPlayerIndex}-${shared.pile.length}-${shared.winner || ''}-${shared.currentSuit}`;
     if (stateKey === lastAppliedRef.current) return;
     if (applyingRef.current) return;
     applyingRef.current = true;
@@ -21,12 +21,7 @@ export function useMultiplayerSync() {
     const myPlayerId = myPlayerIdRef.current;
     const state = useGameStore.getState();
     const myIndex = shared.playerOrder.indexOf(myPlayerId);
-
-    // Don't apply if we're not in this game
     if (myIndex === -1) { applyingRef.current = false; return; }
-
-    // Always apply incoming state for multiplayer - ensures everyone stays in sync
-    // The deduplication via stateKey prevents redundant re-renders
 
     lastAppliedRef.current = stateKey;
 
@@ -47,33 +42,176 @@ export function useMultiplayerSync() {
       };
     });
 
-    // Find winner player object - match by id
+    // Fix: winner lookup — always resolve to full player object
     const winner = shared.winner
-      ? updatedPlayers.find(p => p.id === shared.winner) ||
-        { id: shared.winner, name: shared.playerNames?.[shared.winner] || 'Winner',
-          avatar: '👑', character: 'okonkwo' as const, hand: [], xp: 0, level: 1,
-          solBalance: 0, isBot: false, abilityUsed: false }
+      ? updatedPlayers.find(p => p.id === shared.winner) || {
+          id: shared.winner,
+          name: shared.playerNames?.[shared.winner] || 'Winner',
+          avatar: '👑', character: 'okonkwo' as const,
+          hand: [], xp: 0, level: 1, solBalance: 0, isBot: false, abilityUsed: false,
+        }
       : null;
 
-    // Batch the state update — single setState call, no cascading
+    // Fix SOL CARD: don't overwrite suit selector state if it's currently open
+    // Only update currentSuit from shared state, don't hide local UI
+    const currentState = useGameStore.getState();
+
     useGameStore.setState({
       players: updatedPlayers,
       pile: shared.pile as Card[],
       topCard: shared.topCard as Card,
       currentSuit: shared.currentSuit as CardSuit,
       currentPlayerIndex: shared.currentPlayerIndex,
-      humanPlayerIndex: myIndex,  // Always my own index — never changes
+      humanPlayerIndex: myIndex,
       direction: shared.direction,
       pendingPick: shared.pendingPick,
       deck: shared.deck as Card[],
       winner,
-      selectedCardIds: [],  // Clear selection on state sync
+      selectedCardIds: [],
     });
+
+    // Fix 2 & 3: If winner arrived via sync, show win/loss screen immediately
+    if (winner && !currentState.winner) {
+      setTimeout(() => {
+        // Trigger win modal via existing winner state being set above
+        useGameStore.setState(s => ({ ...s })); // force re-render
+      }, 100);
+    }
+
+    // SOL CARD: if topCard is WHOT and I played it, show suit selector
+    if (shared.topCard?.value === 'WHOT' && shared.lastPlayerId === myPlayerId && !shared.winner) {
+      // Only trigger if currentSuit hasn't been changed yet (still same as before play)
+      setTimeout(() => {
+        const s = useGameStore.getState();
+        if (s.topCard?.value === 'WHOT' && !s.winner) {
+          s.setNotification({ message: 'SOL CARD! Choose a suit', type: 'info' });
+        }
+      }, 150);
+    }
 
     applyingRef.current = false;
   }
 
-  // Realtime subscription
+  // ── Handle room update (game state changes, winner, status) ───────────────
+  function handleRoomUpdate(room: any) {
+    const myPlayerId = myPlayerIdRef.current;
+
+    // Fix 2 & 3: Room status = 'finished' means someone won or left
+    if (room?.status === 'finished') {
+      const shared = room.game_state as SharedGameState | null;
+      if (shared?.winner) {
+        // Apply the final state so winner is set, then screens show correctly
+        applyIncomingState(shared);
+      } else {
+        // No winner data — just go to menu
+        useGameStore.setState({
+          notification: { message: 'Game ended.', type: 'info' },
+          screen: 'menu',
+        });
+      }
+      return;
+    }
+
+    if (room?.game_state) {
+      applyIncomingState(room.game_state as SharedGameState);
+    }
+  }
+
+  // ── Handle player disconnect from room_players table ──────────────────────
+  async function handleDisconnect(disconnectedId: string) {
+    const myPlayerId = myPlayerIdRef.current;
+    if (disconnectedId === myPlayerId) return;
+
+    const state = useGameStore.getState();
+    if (!state.isGameStarted || state.winner) return;
+
+    // Get current active players from Supabase (most accurate)
+    const { data: activePlayers } = await supabase
+      .from('room_players')
+      .select('player_id, player_name, joined_at')
+      .eq('room_code', inviteCode!)
+      .order('joined_at', { ascending: true });
+
+    const remaining = (activePlayers || []).map((p: any) => p.player_id);
+
+    if (remaining.length === 0) {
+      // Everyone left
+      await supabase.from('rooms').update({ status: 'finished', updated_at: new Date().toISOString() }).eq('code', inviteCode!);
+      useGameStore.setState({ screen: 'menu' });
+      return;
+    }
+
+    if (remaining.length === 1 && remaining[0] === myPlayerId) {
+      // Fix 1: I am the LAST player remaining — I win immediately
+      const myPlayer = state.players.find(p => p.id === myPlayerId) || state.players[state.humanPlayerIndex];
+      if (!myPlayer) return;
+
+      // Build final winner state
+      const winnerState: SharedGameState = {
+        pile: state.pile,
+        topCard: state.topCard,
+        currentSuit: state.currentSuit || 'cowrie',
+        currentPlayerIndex: state.currentPlayerIndex,
+        direction: state.direction,
+        pendingPick: 0,
+        winner: myPlayerId,  // I win
+        hands: Object.fromEntries(state.players.map(p => [p.id, p.hand])),
+        playerOrder: state.players.map(p => p.id),
+        playerNames: Object.fromEntries(state.players.map(p => [p.id, p.name])),
+        deck: state.deck,
+        multiMode: state.multiMode || 'war',
+        stakeToken: state.stakeToken,
+        stakeAmount: state.stakeAmount,
+      };
+
+      // Broadcast win immediately
+      const { broadcastGameState } = await import('@/lib/supabase');
+      await broadcastGameState(inviteCode!, winnerState);
+
+      // Mark room finished
+      await supabase.from('rooms')
+        .update({ status: 'finished', game_state: winnerState, updated_at: new Date().toISOString() })
+        .eq('code', inviteCode!);
+
+      // Set winner locally
+      useGameStore.setState({ winner: myPlayer });
+      return;
+    }
+
+    // 3+ players: remove disconnected player from order, continue game
+    const newOrder = state.players.map(p => p.id).filter(id => remaining.includes(id));
+    const newHands = Object.fromEntries(
+      state.players.filter(p => remaining.includes(p.id)).map(p => [p.id, p.hand])
+    );
+    const newNames = Object.fromEntries(
+      state.players.filter(p => remaining.includes(p.id)).map(p => [p.id, p.name])
+    );
+    let newCurrentIdx = state.currentPlayerIndex;
+    if (newCurrentIdx >= newOrder.length) newCurrentIdx = 0;
+
+    const continuedState: SharedGameState = {
+      pile: state.pile,
+      topCard: state.topCard,
+      currentSuit: state.currentSuit || 'cowrie',
+      currentPlayerIndex: newCurrentIdx,
+      direction: state.direction,
+      pendingPick: state.pendingPick,
+      winner: null,
+      hands: newHands,
+      playerOrder: newOrder,
+      playerNames: newNames,
+      deck: state.deck,
+      multiMode: state.multiMode || 'war',
+      stakeToken: state.stakeToken,
+      stakeAmount: state.stakeAmount,
+    };
+
+    const { broadcastGameState } = await import('@/lib/supabase');
+    await broadcastGameState(inviteCode!, continuedState);
+    applyIncomingState(continuedState);
+  }
+
+  // ── Realtime subscription ─────────────────────────────────────────────────
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
@@ -85,17 +223,7 @@ export function useMultiplayerSync() {
         table: 'rooms',
         filter: `code=eq.${inviteCode}`,
       }, (payload) => {
-        const room = payload.new as any;
-        if (room?.status === 'finished') {
-          useGameStore.setState({
-            notification: { message: 'Game ended — a player disconnected.', type: 'info' },
-            screen: 'menu'
-          });
-          return;
-        }
-        if (room?.game_state) {
-          applyIncomingState(room.game_state as SharedGameState);
-        }
+        handleRoomUpdate(payload.new);
       })
       .on('postgres_changes', {
         event: 'DELETE',
@@ -104,30 +232,13 @@ export function useMultiplayerSync() {
         filter: `room_code=eq.${inviteCode}`,
       }, async (payload) => {
         const disconnectedId = (payload.old as any)?.player_id;
-        if (!disconnectedId || disconnectedId === myPlayerIdRef.current) return;
-        const state = useGameStore.getState();
-        if (!state.isGameStarted) return;
-        const shared: SharedGameState = {
-          pile: state.pile,
-          topCard: state.topCard,
-          currentSuit: state.currentSuit || 'cowrie',
-          currentPlayerIndex: state.currentPlayerIndex,
-          direction: state.direction,
-          pendingPick: state.pendingPick,
-          winner: state.winner?.id || null,
-          hands: Object.fromEntries(state.players.map(p => [p.id, p.hand])),
-          playerOrder: state.players.map(p => p.id),
-          playerNames: Object.fromEntries(state.players.map(p => [p.id, p.name])),
-          deck: state.deck,
-          multiMode: state.multiMode || 'war',
-          stakeToken: state.stakeToken,
-          stakeAmount: state.stakeAmount,
-        };
-        await handlePlayerDisconnect(inviteCode!, disconnectedId, shared);
+        if (disconnectedId) await handleDisconnect(disconnectedId);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[KSol Sync]', status, inviteCode);
+      });
 
-    // Handle own disconnect
+    // Clean disconnect on tab close
     const handleUnload = async () => {
       const state = useGameStore.getState();
       if (state.gameMode === 'multiplayer' && inviteCode && state.isGameStarted) {
@@ -142,13 +253,12 @@ export function useMultiplayerSync() {
     };
   }, [gameMode, inviteCode]);
 
-  // Heartbeat fallback — only if realtime missed something
+  // ── Heartbeat fallback every 5 seconds ───────────────────────────────────
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
     const interval = setInterval(async () => {
-      if (applyingRef.current) return; // skip if mid-apply
-
+      if (applyingRef.current) return;
       try {
         const { data } = await supabase
           .from('rooms')
@@ -157,19 +267,21 @@ export function useMultiplayerSync() {
           .single();
 
         if (!data) return;
-        if (data.status === 'finished') { useGameStore.setState({ screen: 'menu' }); return; }
-
-        const shared = data.game_state as SharedGameState;
-        if (!shared) return;
-
-        const state = useGameStore.getState();
-        // Only apply if something actually changed
-        if (shared.currentPlayerIndex !== state.currentPlayerIndex ||
-            shared.pile.length !== state.pile.length) {
-          applyIncomingState(shared);
+        if (data.status === 'finished') {
+          handleRoomUpdate({ status: 'finished', game_state: data.game_state });
+          return;
+        }
+        if (data.game_state) {
+          const shared = data.game_state as SharedGameState;
+          const state = useGameStore.getState();
+          if (shared.currentPlayerIndex !== state.currentPlayerIndex ||
+              shared.pile.length !== state.pile.length ||
+              shared.winner !== (state.winner?.id || null)) {
+            applyIncomingState(shared);
+          }
         }
       } catch {}
-    }, 5000); // Every 5 seconds — reduced frequency stops the shake
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [gameMode, inviteCode]);

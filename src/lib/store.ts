@@ -73,6 +73,7 @@ export interface Character {
 
 export interface CardPlayEvent {
   playerName: string;
+  playerId: string;   // who played this card
   card: Card;
   timestamp: number;
 }
@@ -236,6 +237,7 @@ async function broadcastIfMultiplayer(get: () => GameState) {
       multiMode: s.multiMode || 'war',
       stakeToken: s.stakeToken,
       stakeAmount: s.stakeAmount,
+      lastPlayerId: s.lastPlayEvent?.playerId,
     });
   } catch {}
 }
@@ -513,7 +515,8 @@ export const useGameStore = create<GameState>()(
         let ns:CardSuit|null=card.value!=='WHOT'?card.suit:currentSuit;
         if(card.special==='pick2')np+=2;if(card.special==='pick4')np+=4;if(card.special==='general_market')np+=1;
         const newPile=[...pile,card];
-        const ev:CardPlayEvent={playerName:human.name,card,timestamp:Date.now()};
+        const myId=typeof window!=='undefined'?localStorage.getItem('kingdomsol-pid')||'human':'human';
+        const ev:CardPlayEvent={playerName:human.name,playerId:myId,card,timestamp:Date.now()};
         if(human.hand.length===0){
           human.xp+=100;human.level=levelFromXp(human.xp);
           get().recordGameResult(true,6);
@@ -598,7 +601,7 @@ export const useGameStore = create<GameState>()(
             let nsuit:CardSuit|null=card.value!=='WHOT'?card.suit:SUITS[Math.floor(Math.random()*SUITS.length)];
             if(card.special==='pick2')np+=2;if(card.special==='pick4')np+=4;
             if(card.special==='hold_on'||card.special==='suspension')ni=((ni+ns.direction)+pc.length)%pc.length;
-            const ev:CardPlayEvent={playerName:bc.name,card,timestamp:Date.now()};
+            const ev:CardPlayEvent={playerName:bc.name,playerId:bc.id,card,timestamp:Date.now()};
             if(bc.hand.length===0){
               get().recordGameResult(false,6);
               set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,winner:bc,pendingPick:0,lastPlayEvent:ev});

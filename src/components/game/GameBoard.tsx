@@ -47,11 +47,10 @@ export function GameBoard() {
   const isMyTurn = currentPlayerIndex === humanPlayerIndex;
   const char = CHARACTERS.find(c => c.key === humanPlayer?.character) || CHARACTERS[0];
   const isMultiplayer = gameMode === 'multiplayer';
-  // iWon: solo = winner.id is 'human', multiplayer = winner.id matches our playerId
+  // iWon: match by player id or name — covers solo and multiplayer
   const iWon = !!winner && (
-    winner.id === 'human' ||
-    winner.id === playerId ||
-    winner.name === humanPlayer?.name
+    (!isMultiplayer && winner.id === 'human') ||
+    (isMultiplayer && winner.id === playerId)
   );
   const iLost = !!winner && !iWon;
 
@@ -98,11 +97,11 @@ export function GameBoard() {
     setCardPops(prev => [...prev, pop]);
     setTimeout(() => setCardPops(prev => prev.filter(p => p.id !== pop.id)), 2200);
 
-    // SOL CARD: ONLY show suit selector to the player who actually played it
-    // Check: lastPlayEvent player matches our identity
+    // SOL CARD: ONLY show suit selector if WE played the card this turn
+    // In multiplayer: check playerId stored in lastPlayEvent
     const wePlayedIt = isMultiplayer
-      ? lastPlayEvent.playerName === humanPlayer?.name
-      : isMyTurn;
+      ? (lastPlayEvent as any).playerId === playerId
+      : true; // solo: always us
     if (c.value === 'WHOT' && wePlayedIt && !pendingWhotCard) {
       setShowSuitSelector(true);
     }
@@ -112,7 +111,10 @@ export function GameBoard() {
   useEffect(() => {
     if (!notification) return;
     // SOL CARD notification triggers suit selector
-    if ((notification.message.includes('SOL CARD') || notification.message.includes('Choose a suit')) && isMyTurn && !showSuitSelector) {
+    // Only show suit selector from notification if it's our turn AND we played last
+    const lastEvent = useGameStore.getState().lastPlayEvent as any;
+    const weTriggered = !isMultiplayer || (lastEvent?.playerId === playerId);
+    if ((notification.message.includes('SOL CARD') || notification.message.includes('Choose a suit')) && isMyTurn && !showSuitSelector && weTriggered) {
       setShowSuitSelector(true);
     }
     const t = setTimeout(() => setNotification(null), 3000);
@@ -156,16 +158,15 @@ export function GameBoard() {
     broadcastGameState(inviteCode, shared).catch(() => {});
   }, [pile?.length, currentPlayerIndex, winner?.id]);
 
-  // Fix 2: Extra broadcast specifically on win — ensures all multiplayer clients see winner
+  // Fix 2 & 3: On win — broadcast to ALL players and mark room finished
   useEffect(() => {
     if (!winner || !isMultiplayer || !inviteCode) return;
-    // Broadcast winner state immediately and again after 500ms as backup
     const s = useGameStore.getState();
     const shared = {
       pile: s.pile, topCard: s.topCard,
       currentSuit: s.currentSuit || s.topCard?.suit || 'cowrie',
       currentPlayerIndex: s.currentPlayerIndex,
-      direction: s.direction, pendingPick: s.pendingPick,
+      direction: s.direction, pendingPick: 0,
       winner: winner.id,
       hands: Object.fromEntries(s.players.map(p => [p.id, p.hand])),
       playerOrder: s.players.map(p => p.id),
@@ -173,8 +174,18 @@ export function GameBoard() {
       deck: s.deck, multiMode: s.multiMode || 'war',
       stakeToken: s.stakeToken, stakeAmount: s.stakeAmount,
     };
+    // Broadcast winner to all clients
     broadcastGameState(inviteCode, shared).catch(() => {});
-    const t = setTimeout(() => broadcastGameState(inviteCode, shared).catch(() => {}), 600);
+    // Mark room as finished in Supabase so all clients get status='finished'
+    import('@/lib/supabase').then(({ supabase }) => {
+      supabase.from('rooms').update({
+        status: 'finished',
+        game_state: shared,
+        updated_at: new Date().toISOString(),
+      }).eq('code', inviteCode).then(() => {});
+    });
+    // Backup broadcast after 800ms
+    const t = setTimeout(() => broadcastGameState(inviteCode, shared).catch(() => {}), 800);
     return () => clearTimeout(t);
   }, [winner?.id]);
 

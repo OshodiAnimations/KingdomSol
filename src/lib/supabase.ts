@@ -58,6 +58,8 @@ export interface SharedGameState {
 
   // Player order — array of player_ids in turn order
   playerOrder: string[];
+  // Last player to play a card (for SOL CARD suit selector)
+  lastPlayerId?: string;
   // Player names by ID so all clients know everyone's name
   playerNames: Record<string, string>;
 
