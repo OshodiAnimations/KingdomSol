@@ -8,9 +8,32 @@ import { GameBoard } from '@/components/game/GameBoard';
 import { ProfileScreen } from '@/components/ui/XPBar';
 import { LobbyScreen } from '@/components/ui/LobbyScreen';
 import { TutorialScreen } from '@/components/ui/TutorialScreen';
+import { trackVisit, updateSession, removeSession, trackEvent } from '@/lib/analytics';
 import { WalletModal } from '@/components/wallet/WalletChip';
 
 export default function Home() {
+  // Analytics: track visit on load
+  useEffect(() => {
+    const { profile } = useGameStore.getState();
+    trackVisit(profile?.name);
+    updateSession({ playerName: profile?.name, screen: 'loading' });
+
+    // Heartbeat every 30 seconds
+    const heartbeat = setInterval(() => {
+      const s = useGameStore.getState();
+      updateSession({ playerName: s.profile?.name, screen: s.screen, gameMode: s.gameMode || undefined });
+    }, 30000);
+
+    // Remove session on tab close
+    const handleUnload = () => removeSession();
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(heartbeat);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, []);
+
   // Fix 2: Pause/resume music when tab is hidden/shown
   useEffect(() => {
     const handleVisibility = () => {
