@@ -98,8 +98,12 @@ export function GameBoard() {
     setCardPops(prev => [...prev, pop]);
     setTimeout(() => setCardPops(prev => prev.filter(p => p.id !== pop.id)), 2200);
 
-    // SOL CARD: if it was our play and it's now our turn to choose suit
-    if (c.value === 'WHOT' && isMyTurn) {
+    // SOL CARD: ONLY show suit selector to the player who actually played it
+    // Check: lastPlayEvent player matches our identity
+    const wePlayedIt = isMultiplayer
+      ? lastPlayEvent.playerName === humanPlayer?.name
+      : isMyTurn;
+    if (c.value === 'WHOT' && wePlayedIt && !pendingWhotCard) {
       setShowSuitSelector(true);
     }
   }, [lastPlayEvent]);
@@ -108,7 +112,7 @@ export function GameBoard() {
   useEffect(() => {
     if (!notification) return;
     // SOL CARD notification triggers suit selector
-    if ((notification.message.includes('SOL CARD') || notification.message.includes('Choose a suit')) && isMyTurn) {
+    if ((notification.message.includes('SOL CARD') || notification.message.includes('Choose a suit')) && isMyTurn && !showSuitSelector) {
       setShowSuitSelector(true);
     }
     const t = setTimeout(() => setNotification(null), 3000);

@@ -7,6 +7,7 @@ import { MenuScreen } from '@/components/ui/MenuScreen';
 import { GameBoard } from '@/components/game/GameBoard';
 import { ProfileScreen } from '@/components/ui/XPBar';
 import { LobbyScreen } from '@/components/ui/LobbyScreen';
+import { TutorialScreen } from '@/components/ui/TutorialScreen';
 import { WalletModal } from '@/components/wallet/WalletChip';
 
 export default function Home() {

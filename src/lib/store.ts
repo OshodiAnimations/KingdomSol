@@ -6,7 +6,7 @@ export type CardSuit = 'manilla' | 'amole' | 'spearhead' | 'bead' | 'cowrie';
 export type CardValue = '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'10'|'11'|'12'|'13'|'14'|'WHOT';
 export type GameMode = 'story' | 'multiplayer' | 'classic' | 'easy' | 'warrior';
 export type MultiMode = 'war' | 'friendly' | 'raid';
-export type Screen = 'loading' | 'name_setup' | 'menu' | 'board' | 'profile' | 'lobby';
+export type Screen = 'loading' | 'name_setup' | 'menu' | 'board' | 'profile' | 'lobby' | 'tutorial';
 export type TokenSymbol = 'SOL' | 'USDC' | 'BONK' | 'JUP' | 'WIF' | 'KSL';
 
 export interface Card {
@@ -473,8 +473,14 @@ export const useGameStore = create<GameState>()(
       },
 
       playCard:(cardId)=>{
-        const{players,humanPlayerIndex,currentPlayerIndex,pile,topCard,currentSuit,pendingPick,direction}=get();
+        const{players,humanPlayerIndex,currentPlayerIndex,pile,topCard,currentSuit,pendingPick,direction,gameMode}=get();
         if(currentPlayerIndex!==humanPlayerIndex)return;
+        // In multiplayer: extra guard - check it's actually our turn in the shared order
+        if(gameMode==='multiplayer'){
+          const myPlayer=players[humanPlayerIndex];
+          const currentPlayer=players[currentPlayerIndex];
+          if(!myPlayer||!currentPlayer||myPlayer.id!==currentPlayer.id)return;
+        }
         const pc=players.map(p=>({...p,hand:[...p.hand]}));
         const human=pc[humanPlayerIndex];
         const ci=human.hand.findIndex(c=>c.id===cardId);
@@ -516,8 +522,14 @@ export const useGameStore = create<GameState>()(
       },
 
       drawCard:()=>{
-        const{deck,players,humanPlayerIndex,currentPlayerIndex,direction,pendingPick}=get();
+        const{deck,players,humanPlayerIndex,currentPlayerIndex,direction,pendingPick,gameMode}=get();
         if(currentPlayerIndex!==humanPlayerIndex)return;
+        // Multiplayer strict guard
+        if(gameMode==='multiplayer'){
+          const myPlayer=players[humanPlayerIndex];
+          const currentPlayer=players[currentPlayerIndex];
+          if(!myPlayer||!currentPlayer||myPlayer.id!==currentPlayer.id)return;
+        }
         // Auto-reshuffle: if deck is empty, create a fresh shuffled deck from played pile (keep top card)
         let activeDeck = deck;
         if (activeDeck.length < 2) {

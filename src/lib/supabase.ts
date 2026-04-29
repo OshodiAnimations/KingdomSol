@@ -204,7 +204,14 @@ export async function startSharedGame(params: {
   const startCard = nonSpecial[0];
   remaining = remaining.filter((c: any) => c.id !== startCard.id);
 
-  const playerOrder = params.players.map(p => p.player_id);
+  // Sort players by joined_at to establish stable hierarchy (Player 1 = host, others in join order)
+  const sortedPlayers = [...params.players].sort((a, b) =>
+    new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
+  );
+  const playerOrder = sortedPlayers.map(p => p.player_id);
+  // Rebuild hands in sorted order
+  const sortedHands: Record<string, any[]> = {};
+  for (const p of sortedPlayers) sortedHands[p.player_id] = hands[p.player_id] || [];
 
   const playerNames: Record<string, string> = {};
   for (const p of params.players) playerNames[p.player_id] = p.player_name;

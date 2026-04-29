@@ -127,6 +127,17 @@ export function MenuScreen() {
           </div>
           ))}
 
+          {/* Tutorial */}
+          <div style={{ width:155, padding:'16px 12px', borderRadius:16, cursor:'pointer', background:'rgba(26,20,16,0.7)', border:'1.5px solid rgba(0,194,255,0.12)', transition:'all 0.25s', backdropFilter:'blur(10px)', textAlign:'center' }}
+            onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-4px)';(e.currentTarget as HTMLElement).style.background='rgba(0,194,255,0.08)';(e.currentTarget as HTMLElement).style.borderColor='rgba(0,194,255,0.4)';}}
+            onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.background='rgba(26,20,16,0.7)';(e.currentTarget as HTMLElement).style.borderColor='rgba(0,194,255,0.12)';}}>
+            <div style={{ fontSize:28, marginBottom:7 }}>🎓</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:13, fontWeight:900, color:'#00C2FF', letterSpacing:'0.06em', marginBottom:4 }}>Tutorial</div>
+            <div style={{ fontFamily:'var(--font-body)', fontSize:11, color:'rgba(245,230,200,0.4)', marginBottom:12, lineHeight:1.4 }}>Learn how to play step-by-step</div>
+            <button className="btn-primary" style={{ width:'100%', fontSize:10, padding:'8px', letterSpacing:'0.08em', fontWeight:900, background:'linear-gradient(135deg,#00C2FF,#0077AA)' }}
+              onClick={() => useGameStore.getState().setScreen('tutorial')}>START</button>
+          </div>
+
           {/* Multiplayer */}
           <div style={{ width:190, padding:'18px 14px', borderRadius:16, background:showMultiPanel?'rgba(153,69,255,0.12)':'rgba(26,20,16,0.7)', border:`1.5px solid ${showMultiPanel?'rgba(153,69,255,0.4)':'rgba(232,184,75,0.12)'}`, transition:'all 0.25s', backdropFilter:'blur(10px)', textAlign:'center' }}>
             <div style={{ fontSize:30, marginBottom:8 }}>⚔️</div>
