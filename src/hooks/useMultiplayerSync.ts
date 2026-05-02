@@ -78,15 +78,19 @@ export function useMultiplayerSync() {
       }, 100);
     }
 
-    // SOL CARD: if topCard is WHOT and I played it, show suit selector
-    if (shared.topCard?.value === 'WHOT' && shared.lastPlayerId === myPlayerId && !shared.winner) {
-      // Only trigger if currentSuit hasn't been changed yet (still same as before play)
-      setTimeout(() => {
-        const s = useGameStore.getState();
-        if (s.topCard?.value === 'WHOT' && !s.winner) {
-          s.setNotification({ message: 'SOL CARD! Choose a suit', type: 'info' });
-        }
-      }, 150);
+    // SOL CARD multiplayer: if suitPendingPlayerId is me, set pendingNextPlayer locally
+    // so the selector shows ONLY on my screen
+    if (shared.suitPendingPlayerId === myPlayerId && !shared.winner) {
+      // Find what my next player index would be after suit is chosen
+      // In multiplayer, currentPlayerIndex is still on the WHOT player
+      // After suit chosen, turn advances — we store this locally
+      const currentIdx = shared.currentPlayerIndex;
+      const direction = shared.direction || 1;
+      const ni = ((currentIdx + direction) + shared.playerOrder.length) % shared.playerOrder.length;
+      useGameStore.setState({ pendingNextPlayer: ni });
+    } else if (shared.suitPendingPlayerId === null || shared.suitPendingPlayerId === undefined) {
+      // No pending suit — clear local pendingNextPlayer
+      useGameStore.setState({ pendingNextPlayer: null });
     }
 
     applyingRef.current = false;

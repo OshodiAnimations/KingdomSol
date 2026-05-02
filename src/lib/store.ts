@@ -109,6 +109,7 @@ export interface GameState {
   topCard: Card | null;
   currentSuit: CardSuit | null;
   pendingPick: number;
+  pendingNextPlayer: number | null;  // index to advance to after SOL CARD suit is chosen
   direction: 1 | -1;
   isGameStarted: boolean;
   winner: Player | null;
@@ -238,6 +239,9 @@ async function broadcastIfMultiplayer(get: () => GameState) {
       stakeToken: s.stakeToken,
       stakeAmount: s.stakeAmount,
       lastPlayerId: s.lastPlayEvent?.playerId,
+      // Tell other clients WHO played SOL CARD (so only they show selector)
+      suitPendingPlayerId: s.pendingNextPlayer !== null ? s.lastPlayEvent?.playerId || null : null,
+      // DO NOT broadcast pendingNextPlayer - it's a local index, meaningless to others
     });
   } catch {}
 }
@@ -248,7 +252,7 @@ export const useGameStore = create<GameState>()(
       screen:'loading', gameMode:null, multiMode:null, profile:null,
       players:[], currentPlayerIndex:0, humanPlayerIndex:0,
       deck:[], pile:[], topCard:null, currentSuit:null,
-      pendingPick:0, direction:1, isGameStarted:false, winner:null, raidTimeLeft:null,
+      pendingPick:0, pendingNextPlayer:null, direction:1, isGameStarted:false, winner:null, raidTimeLeft:null,
       playerStakes:[], stakeToken:'KSL', stakeAmount:'0',
       selectedCardIds:[], showWalletModal:false, notification:null, lastPlayEvent:null,
       musicEnabled:true, sfxEnabled:true,
@@ -528,34 +532,33 @@ export const useGameStore = create<GameState>()(
         let ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
         if(card.special==='hold_on'||card.special==='suspension')ni=((ni+direction)+pc.length)%pc.length;
         if(card.value==='WHOT'){
-          // Hold at current player until suit is chosen — store nextPlayerIndex for changeSuit to use
-          set({players:pc,pile:newPile,topCard:card,currentSuit:ns,selectedCardIds:[],pendingPick:np,lastPlayEvent:ev,
+          // Hold at current player, store next index in state for changeSuit to consume
+          set({
+            players:pc, pile:newPile, topCard:card, currentSuit:currentSuit, // keep current suit until chosen
+            selectedCardIds:[], pendingPick:np, lastPlayEvent:ev,
             notification:{message:'SOL CARD! Choose a suit',type:'info'},
-            // Store intended next player in pendingNextPlayer (reuse direction field temporarily isn't safe, use a dedicated approach)
-            // We keep currentPlayerIndex as humanPlayerIndex and changeSuit advances it
-            currentPlayerIndex:humanPlayerIndex,
+            currentPlayerIndex:humanPlayerIndex,  // stay on human until suit chosen
+            pendingNextPlayer:ni,                 // advance here after suit chosen
           });
-          // Store next index for changeSuit to use
-          if(typeof window!=='undefined') (window as any).__whotNextIdx = ni;
           if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
           return;
         }
-        set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,pendingPick:np,selectedCardIds:[],lastPlayEvent:ev});
+        set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,
+          pendingPick:np,selectedCardIds:[],lastPlayEvent:ev,pendingNextPlayer:null});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
         else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
 
       changeSuit:(suit)=>{
-        const{players,humanPlayerIndex,gameMode}=get();
-        // Use the next index stored when WHOT was played, fallback to computing it
-        const storedNext = typeof window!=='undefined' ? (window as any).__whotNextIdx : null;
-        const direction = get().direction;
-        const ni = (storedNext !== null && storedNext !== undefined)
-          ? storedNext
-          : ((humanPlayerIndex+direction)+players.length)%players.length;
-        if(typeof window!=='undefined') (window as any).__whotNextIdx = null;
-        set({currentSuit:suit,currentPlayerIndex:ni,notification:null});
+        const{players,humanPlayerIndex,currentPlayerIndex,gameMode,pendingNextPlayer,direction}=get();
+        // Use pendingNextPlayer (locally computed correct next index)
+        // Fall back to advancing from current position
+        const ni = (pendingNextPlayer !== null && pendingNextPlayer !== undefined)
+          ? pendingNextPlayer
+          : ((currentPlayerIndex+direction)+players.length)%players.length;
+        set({currentSuit:suit, currentPlayerIndex:ni, pendingNextPlayer:null, notification:null});
         if(gameMode==='multiplayer'){
+          // In multiplayer: broadcast with suitPendingPlayerId=null to signal suit was chosen
           setTimeout(()=>broadcastIfMultiplayer(get),100);
         } else if(ni!==humanPlayerIndex){
           setTimeout(()=>get().botTurn(),1200);
@@ -620,7 +623,9 @@ export const useGameStore = create<GameState>()(
             const idx=bc.hand.findIndex(c=>c.id===card.id);
             bc.hand.splice(idx,1);
             let np=ns.pendingPick;
-            let nsuit:CardSuit|null=card.value!=='WHOT'?card.suit:SUITS[Math.floor(Math.random()*SUITS.length)];
+            // Bot picks suit for WHOT immediately — never shows selector to human
+            const botChosenSuit:CardSuit=SUITS[Math.floor(Math.random()*SUITS.length)];
+            let nsuit:CardSuit|null=card.value!=='WHOT'?card.suit:botChosenSuit;
             if(card.special==='pick2')np+=2;if(card.special==='pick4')np+=4;
             if(card.special==='hold_on'||card.special==='suspension')ni=((ni+ns.direction)+pc.length)%pc.length;
             const ev:CardPlayEvent={playerName:bc.name,playerId:bc.id,card,timestamp:Date.now()};
@@ -630,7 +635,9 @@ export const useGameStore = create<GameState>()(
               if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),50);
               return;
             }
-            set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,currentPlayerIndex:ni,pendingPick:np,lastPlayEvent:ev});
+            // Bot WHOT: advance turn immediately with chosen suit, no pending state
+            set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,
+              currentPlayerIndex:ni,pendingPick:np,pendingNextPlayer:null,lastPlayEvent:ev});
           }else{
             const count=ns.pendingPick>0?ns.pendingPick:1;
             let botDeck = ns.deck;

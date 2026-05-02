@@ -60,6 +60,9 @@ export interface SharedGameState {
   playerOrder: string[];
   // Last player to play a card (for SOL CARD suit selector)
   lastPlayerId?: string;
+  // When set: this player ID played SOL CARD and needs to pick a suit
+  // Only the client whose playerId matches this shows the suit selector
+  suitPendingPlayerId?: string | null;
   // Player names by ID so all clients know everyone's name
   playerNames: Record<string, string>;
 

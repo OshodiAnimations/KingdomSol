@@ -22,7 +22,7 @@ interface CardPopEvent {
 export function GameBoard() {
   const {
     players, humanPlayerIndex, currentPlayerIndex,
-    topCard, currentSuit, pendingPick, deck, pile,
+    topCard, currentSuit, pendingPick, pendingNextPlayer, deck, pile,
     selectedCardIds, winner, stakeToken, stakeAmount,
     playCard, drawCard, selectCard, changeSuit, setScreen,
     notification, setNotification, lastPlayEvent,
@@ -97,27 +97,25 @@ export function GameBoard() {
     setCardPops(prev => [...prev, pop]);
     setTimeout(() => setCardPops(prev => prev.filter(p => p.id !== pop.id)), 2200);
 
-    // SOL CARD: ONLY show suit selector if WE played the card this turn
-    // In multiplayer: check playerId stored in lastPlayEvent
-    const wePlayedIt = isMultiplayer
-      ? (lastPlayEvent as any).playerId === playerId
-      : true; // solo: always us
-    if (c.value === 'WHOT' && wePlayedIt && !pendingWhotCard) {
-      setShowSuitSelector(true);
-    }
+    // SOL CARD selector is driven by pendingNextPlayer state, NOT lastPlayEvent
+    // This prevents bot WHOT plays from accidentally triggering human selector
   }, [lastPlayEvent]);
 
   // ── Notification handler ───────────────────────────────────────────────────
   useEffect(() => {
     if (!notification) return;
-    // SOL CARD notification triggers suit selector
-    // Show suit selector from notification only if it's OUR turn and not already showing
-    if (notification.message === 'SOL CARD! Choose a suit' && isMyTurn && !showSuitSelector) {
-      setShowSuitSelector(true);
-    }
+    // Clear notification after 3 seconds — selector is driven by pendingNextPlayer
     const t = setTimeout(() => setNotification(null), 3000);
     return () => clearTimeout(t);
-  }, [notification, isMyTurn, setNotification]);
+  }, [notification, setNotification]);
+
+  // ── SOL CARD selector: driven purely by pendingNextPlayer state ────────────
+  // This fires ONLY when a human player plays WHOT (bots never set pendingNextPlayer)
+  useEffect(() => {
+    if (pendingNextPlayer !== null && isMyTurn && !showSuitSelector) {
+      setShowSuitSelector(true);
+    }
+  }, [pendingNextPlayer, isMyTurn]);
 
   // ── Win modal ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -423,10 +421,10 @@ export function GameBoard() {
                     const card = humanPlayer.hand.find(c => c.id === cardId);
                     if (!card) return;
                     if (card.value === 'WHOT') {
-                      // For WHOT: play the card first (advances to suit-pick state), then show selector
+                      // Play WHOT — this sets pendingNextPlayer in store
                       playCard(cardId);
-                      setPendingWhotCard(cardId);
-                      setTimeout(() => setShowSuitSelector(true), 50);
+                      // Show selector after store updates (pendingNextPlayer will be set)
+                      setTimeout(() => setShowSuitSelector(true), 60);
                     } else {
                       playCard(cardId);
                     }
