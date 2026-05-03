@@ -473,7 +473,7 @@ export const useGameStore = create<GameState>()(
         const card=human?.hand.find(c=>c.id===cardId);
         if(!card||!topCard)return;
         const{pendingPick:pp,pendingSpecial:ps}=get();
-    if(!canPlay(card,topCard,currentSuit,pp,ps||undefined)){set({notification:{message:pp>0?`Must play a matching counter card or draw ${pp}!`:\"Can't play that! Match the suit or value.\",type:'error'}});return;}
+    if(!canPlay(card,topCard,currentSuit,pp,ps||undefined)){set({notification:{message:pp>0?'Must play a counter card or draw '+pp+'!':'Cannot play that card. Match the suit or value.',type:'error'}});return;}
         if(selectedCardIds.includes(cardId)){set({selectedCardIds:selectedCardIds.filter(id=>id!==cardId)});}
         else{set({selectedCardIds:[cardId]});}
       },
@@ -521,7 +521,7 @@ export const useGameStore = create<GameState>()(
         if(ci===-1)return;
         const card=human.hand[ci];
         const ps2=get().pendingSpecial;
-        if(!topCard||!canPlay(card,topCard,currentSuit,pendingPick,ps2||undefined)){set({notification:{message:pendingPick>0?`Only a counter card can be played! Draw ${pendingPick} or counter.`:'Invalid play!',type:'error'}});return;}
+        if(!topCard||!canPlay(card,topCard,currentSuit,pendingPick,ps2||undefined)){set({notification:{message:pendingPick>0?'Only a counter card can be played! Draw '+pendingPick+' or play a counter.':'Invalid play!',type:'error'}});return;}
         human.hand.splice(ci,1);
         const{pendingSpecial}=get();
         let np=pendingPick;
