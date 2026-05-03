@@ -22,7 +22,7 @@ interface CardPopEvent {
 export function GameBoard() {
   const {
     players, humanPlayerIndex, currentPlayerIndex,
-    topCard, currentSuit, pendingPick, pendingNextPlayer, deck, pile,
+    topCard, currentSuit, pendingPick, pendingSpecial, pendingNextPlayer, deck, pile,
     selectedCardIds, winner, stakeToken, stakeAmount,
     playCard, drawCard, selectCard, changeSuit, setScreen,
     notification, setNotification, lastPlayEvent,
@@ -328,7 +328,9 @@ export function GameBoard() {
           </div>
           <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.5)' }}>{deck.length} left</div>
           {pendingPick > 0 && (
-            <div style={{ padding:'3px 10px', borderRadius:5, background:'rgba(255,80,50,0.2)', border:'1px solid rgba(255,80,50,0.4)', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'#FF6432' }}>PICK {pendingPick}!</div>
+            <div style={{ padding:'3px 10px', borderRadius:5, background:'rgba(255,80,50,0.2)', border:'1px solid rgba(255,80,50,0.4)', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'#FF6432' }}>
+              PICK {pendingPick}! {pendingSpecial ? `(counter with ${pendingSpecial === 'pick2' ? '2' : '5'})` : ''}
+            </div>
           )}
         </div>
 
@@ -385,7 +387,15 @@ export function GameBoard() {
         <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:6, scrollbarWidth:'none' as const, WebkitOverflowScrolling:'touch' as any, justifyContent:humanPlayer.hand.length < 6 ? 'center' : 'flex-start' }}>
           {humanPlayer.hand.map(card => {
             const playable = isMyTurn && topCard
-              ? (card.value==='WHOT' || card.suit===(currentSuit||topCard.suit) || card.value===topCard.value)
+              ? (() => {
+                  if (card.value === 'WHOT') return true;
+                  // Enforce counter rules when penalty is active
+                  if (pendingPick > 0) {
+                    if (pendingSpecial === 'pick2') return card.special === 'pick2';
+                    if (pendingSpecial === 'pick3') return card.special === 'pick3';
+                  }
+                  return card.suit === (currentSuit || topCard.suit) || card.value === topCard.value;
+                })()
               : false;
             return (
               <div key={card.id} style={{ flexShrink:0 }}
@@ -412,7 +422,7 @@ export function GameBoard() {
           {isMyTurn && !winner && (
             <>
               <button className="btn-secondary" style={{ fontSize:12, padding:'9px 22px', fontWeight:900, letterSpacing:'0.08em' }} onClick={handleDraw}>
-                {pendingPick>0 ? `DRAW ${pendingPick} CARDS` : 'DRAW CARD'}
+                {pendingPick>0 ? `DRAW ${pendingPick} CARDS (or counter)` : 'DRAW CARD'}
               </button>
               {selectedCardIds.length > 0 && (
                 <button className="btn-primary" style={{ fontSize:12, padding:'9px 26px', fontWeight:900, letterSpacing:'0.08em' }}

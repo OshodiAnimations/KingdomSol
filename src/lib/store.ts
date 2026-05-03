@@ -13,7 +13,7 @@ export interface Card {
   id: string;
   suit: CardSuit;
   value: CardValue;
-  special?: 'pick2' | 'pick4' | 'general_market' | 'hold_on' | 'suspension';
+  special?: 'pick2' | 'pick3' | 'general_market' | 'hold_on' | 'suspension';
 }
 
 export interface PlayerProfile {
@@ -109,6 +109,7 @@ export interface GameState {
   topCard: Card | null;
   currentSuit: CardSuit | null;
   pendingPick: number;
+  pendingSpecial: string | null;  // 'pick2' | 'pick3' | null — which penalty is active
   pendingNextPlayer: number | null;  // index to advance to after SOL CARD suit is chosen
   direction: 1 | -1;
   isGameStarted: boolean;
@@ -195,7 +196,7 @@ function createDeck(): Card[] {
     for(let v=1;v<=14;v++){
       const value=v.toString() as CardValue;
       let special:Card['special'];
-      if(v===1)special='hold_on';if(v===2)special='pick2';if(v===5)special='pick4';
+      if(v===1)special='hold_on';if(v===2)special='pick2';if(v===5)special='pick3';
       if(v===14)special='general_market';if(suit==='cowrie'&&v===8)special='suspension';
       deck.push({id:`c${id++}`,suit,value,special});
     }
@@ -204,8 +205,13 @@ function createDeck(): Card[] {
   return shuffle(deck);
 }
 
-function canPlay(card:Card,topCard:Card,currentSuit:CardSuit|null):boolean{
+function canPlay(card:Card,topCard:Card,currentSuit:CardSuit|null,pendingPick?:number,pendingSpecial?:string):boolean{
   if(card.value==='WHOT')return true;
+  // When a pick penalty is active, ONLY the exact counter card can be played
+  if(pendingPick&&pendingPick>0){
+    if(pendingSpecial==='pick2') return card.special==='pick2'; // only another 2 cancels
+    if(pendingSpecial==='pick3') return card.special==='pick3'; // only another 5 cancels
+  }
   const s=currentSuit||topCard.suit;
   return card.suit===s||card.value===topCard.value;
 }
@@ -252,7 +258,7 @@ export const useGameStore = create<GameState>()(
       screen:'loading', gameMode:null, multiMode:null, profile:null,
       players:[], currentPlayerIndex:0, humanPlayerIndex:0,
       deck:[], pile:[], topCard:null, currentSuit:null,
-      pendingPick:0, pendingNextPlayer:null, direction:1, isGameStarted:false, winner:null, raidTimeLeft:null,
+      pendingPick:0, pendingSpecial:null, pendingNextPlayer:null, direction:1, isGameStarted:false, winner:null, raidTimeLeft:null,
       playerStakes:[], stakeToken:'KSL', stakeAmount:'0',
       selectedCardIds:[], showWalletModal:false, notification:null, lastPlayEvent:null,
       musicEnabled:true, sfxEnabled:true,
@@ -466,7 +472,8 @@ export const useGameStore = create<GameState>()(
         const human=players[humanPlayerIndex];
         const card=human?.hand.find(c=>c.id===cardId);
         if(!card||!topCard)return;
-        if(!canPlay(card,topCard,currentSuit)){set({notification:{message:"Can't play that! Match the suit or value.",type:'error'}});return;}
+        const{pendingPick:pp,pendingSpecial:ps}=get();
+    if(!canPlay(card,topCard,currentSuit,pp,ps||undefined)){set({notification:{message:pp>0?`Must play a matching counter card or draw ${pp}!`:\"Can't play that! Match the suit or value.\",type:'error'}});return;}
         if(selectedCardIds.includes(cardId)){set({selectedCardIds:selectedCardIds.filter(id=>id!==cardId)});}
         else{set({selectedCardIds:[cardId]});}
       },
@@ -513,18 +520,27 @@ export const useGameStore = create<GameState>()(
         const ci=human.hand.findIndex(c=>c.id===cardId);
         if(ci===-1)return;
         const card=human.hand[ci];
-        if(!topCard||!canPlay(card,topCard,currentSuit)){set({notification:{message:'Invalid play!',type:'error'}});return;}
+        const ps2=get().pendingSpecial;
+        if(!topCard||!canPlay(card,topCard,currentSuit,pendingPick,ps2||undefined)){set({notification:{message:pendingPick>0?`Only a counter card can be played! Draw ${pendingPick} or counter.`:'Invalid play!',type:'error'}});return;}
         human.hand.splice(ci,1);
+        const{pendingSpecial}=get();
         let np=pendingPick;
+        let newPendingSpecial:string|null=pendingSpecial;
         let ns:CardSuit|null=card.value!=='WHOT'?card.suit:currentSuit;
-        if(card.special==='pick2')np+=2;if(card.special==='pick4')np+=4;if(card.special==='general_market')np+=1;
+        if(card.special==='pick2'){
+          if(pendingSpecial==='pick2'){np=0;newPendingSpecial=null;} // cancel — both draw nothing
+          else{np=2;newPendingSpecial='pick2';}
+        } else if(card.special==='pick3'){
+          if(pendingSpecial==='pick3'){np=0;newPendingSpecial=null;} // cancel
+          else{np=3;newPendingSpecial='pick3';}
+        } else if(card.special==='general_market'){np+=1;}
         const newPile=[...pile,card];
         const myId=typeof window!=='undefined'?localStorage.getItem('kingdomsol-pid')||'human':'human';
         const ev:CardPlayEvent={playerName:human.name,playerId:myId,card,timestamp:Date.now()};
         if(human.hand.length===0){
           human.xp+=100;human.level=levelFromXp(human.xp);
           get().recordGameResult(true,6);
-          set({players:pc,pile:newPile,topCard:card,currentSuit:ns,winner:human,selectedCardIds:[],pendingPick:0,lastPlayEvent:ev});
+          set({players:pc,pile:newPile,topCard:card,currentSuit:ns,winner:human,selectedCardIds:[],pendingPick:0,pendingSpecial:null,lastPlayEvent:ev});
           // Multiplayer: immediately broadcast win to all players
           if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),50);
           return;
@@ -546,7 +562,7 @@ export const useGameStore = create<GameState>()(
           return;
         }
         set({players:pc,pile:newPile,topCard:card,currentSuit:ns,currentPlayerIndex:ni,
-          pendingPick:np,selectedCardIds:[],lastPlayEvent:ev,pendingNextPlayer:null});
+          pendingPick:np,pendingSpecial:newPendingSpecial,selectedCardIds:[],lastPlayEvent:ev,pendingNextPlayer:null});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
         else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
@@ -597,7 +613,7 @@ export const useGameStore = create<GameState>()(
         pc[humanPlayerIndex].hand.push(...activeDeck.slice(0,count));
         // Use currentPlayerIndex (shared) not humanPlayerIndex (local)
         const ni=((currentPlayerIndex+direction)+pc.length)%pc.length;
-        set({players:pc,deck:activeDeck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
+        set({players:pc,deck:activeDeck.slice(count),pendingPick:0,pendingSpecial:null,currentPlayerIndex:ni,selectedCardIds:[]});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
         else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
       },
@@ -607,7 +623,7 @@ export const useGameStore = create<GameState>()(
         const{currentPlayerIndex:ci,humanPlayerIndex:hi,players}=s;
         if(ci===hi||!players[ci]||s.winner||s.gameMode==='multiplayer')return;
         const bot=players[ci];
-        const playable=bot.hand.filter(c=>s.topCard&&canPlay(c,s.topCard,s.currentSuit));
+        const playable=bot.hand.filter(c=>s.topCard&&canPlay(c,s.topCard,s.currentSuit,s.pendingPick,s.pendingSpecial||undefined));
         const isEasyBot=s.gameMode==='easy';
         const isWarriorBot=s.gameMode==='warrior';
         // Easy: bot draws 30% of the time even when it can play, slower thinking
@@ -621,17 +637,19 @@ export const useGameStore = create<GameState>()(
           // Easy bot: 30% chance to draw even if it can play (makes mistakes)
           const easyMistake=isEasyBot&&Math.random()<0.30;
           if(playable.length>0&&ns.pendingPick===0&&!easyMistake){
-            // Easy: picks worst card (regular, no specials). Warrior: picks best card (pick4 > pick2 > WHOT > regular)
+            // Easy: picks worst card (regular, no specials). Warrior: picks best card (pick3 > pick2 > WHOT > regular)
             const card=isEasyBot
               ? playable.find(c=>!c.special&&c.value!=='WHOT')||playable[playable.length-1]  // Easy: play weakest
-              : playable.find(c=>c.special==='pick4')||playable.find(c=>c.special==='pick2')||playable.find(c=>c.value==='WHOT')||playable[Math.floor(Math.random()*playable.length)]; // Warrior: play strongest
+              : playable.find(c=>c.special==='pick3')||playable.find(c=>c.special==='pick2')||playable.find(c=>c.value==='WHOT')||playable[Math.floor(Math.random()*playable.length)]; // Warrior: play strongest
             const idx=bc.hand.findIndex(c=>c.id===card.id);
             bc.hand.splice(idx,1);
             let np=ns.pendingPick;
             // Bot picks suit for WHOT immediately — never shows selector to human
             const botChosenSuit:CardSuit=SUITS[Math.floor(Math.random()*SUITS.length)];
             let nsuit:CardSuit|null=card.value!=='WHOT'?card.suit:botChosenSuit;
-            if(card.special==='pick2')np+=2;if(card.special==='pick4')np+=4;
+            const bps=ns.pendingSpecial;
+        if(card.special==='pick2'){if(bps==='pick2'){np=0;}else{np=2;}}
+        else if(card.special==='pick3'){if(bps==='pick3'){np=0;}else{np=3;}}
             if(card.special==='hold_on'||card.special==='suspension')ni=((ni+ns.direction)+pc.length)%pc.length;
             const ev:CardPlayEvent={playerName:bc.name,playerId:bc.id,card,timestamp:Date.now()};
             if(bc.hand.length===0){
@@ -641,8 +659,9 @@ export const useGameStore = create<GameState>()(
               return;
             }
             // Bot WHOT: advance turn immediately with chosen suit, no pending state
+            const newBotSpecial=card.special==='pick2'?(bps==='pick2'?null:'pick2'):card.special==='pick3'?(bps==='pick3'?null:'pick3'):null;
             set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,
-              currentPlayerIndex:ni,pendingPick:np,pendingNextPlayer:null,lastPlayEvent:ev});
+              currentPlayerIndex:ni,pendingPick:np,pendingSpecial:newBotSpecial,pendingNextPlayer:null,lastPlayEvent:ev});
           }else{
             const count=ns.pendingPick>0?ns.pendingPick:1;
             let botDeck = ns.deck;
@@ -652,7 +671,7 @@ export const useGameStore = create<GameState>()(
               set({ pile: topPile ? [topPile] : [], deck: botDeck, notification: { message: '🔀 Deck reshuffled!', type: 'info' } });
             }
             bc.hand.push(...botDeck.slice(0,count));
-            set({players:pc,deck:botDeck.slice(count),currentPlayerIndex:ni,pendingPick:0});
+            set({players:pc,deck:botDeck.slice(count),currentPlayerIndex:ni,pendingPick:0,pendingSpecial:null});
           }
           if(ni!==ns.humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),isEasyBot?1600:isWarriorBot?350:1000);
         },botDelay);

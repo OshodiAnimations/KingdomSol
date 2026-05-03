@@ -69,7 +69,7 @@ const SUIT_BG: Record<CardSuit, string> = {
 };
 
 const SPECIAL_LABELS: Record<string, string> = {
-  pick2:'PICK 2', pick4:'PICK 4', general_market:'MARKET', hold_on:'HOLD ON', suspension:'SUSPEND',
+  pick2:'PICK 2', pick3:'PICK 4', general_market:'MARKET', hold_on:'HOLD ON', suspension:'SUSPEND',
 };
 
 // SIZES: sm = opponent preview, md = hand cards on mobile, lg = main hand

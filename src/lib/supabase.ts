@@ -425,7 +425,7 @@ function buildSharedDeck(): any[] {
       let special = null;
       if (v === 1) special = 'hold_on';
       if (v === 2) special = 'pick2';
-      if (v === 5) special = 'pick4';
+      if (v === 5) special = 'pick3';
       if (v === 14) special = 'general_market';
       if (suit === 'cowrie' && v === 8) special = 'suspension';
       deck.push({ id: `c${id++}`, suit, value: v.toString(), special });

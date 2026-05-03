@@ -51,12 +51,12 @@ const STEPS = [
     demoCard: { suit: 'amole', value: '2', special: 'pick2' },
   },
   {
-    id: 'special-pick4',
-    title: '⚡ Special Card: Pick Four',
-    text: 'The 5 card (SPEARHEAD 5) forces the next player to draw 4 cards!\n\nIf someone plays Pick Two at you, you can counter with Pick Two or Pick Four of your own — the penalty stacks!',
+    id: 'special-pick3',
+    title: '⚡ Special Card: Pick Three',
+    text: 'The 5 card (SPEARHEAD 5) forces the next player to draw 3 cards!\n\nIf someone plays Pick Two at you, you can counter with Pick Two or Pick Three of your own — playing the same card cancels the penalty!',
     highlight: 'special',
     action: null,
-    demoCard: { suit: 'spearhead', value: '5', special: 'pick4' },
+    demoCard: { suit: 'spearhead', value: '5', special: 'pick3' },
   },
   {
     id: 'special-market',
@@ -100,7 +100,7 @@ const STEPS = [
   {
     id: 'characters',
     title: '🦸 Choose Your Character',
-    text: 'Each character has a unique ABILITY you can use ONCE per game:\n\n👑 Okonkwo — play 2 same-value cards at once\n🔮 Amara — peek at the top 3 deck cards\n🦊 Zara — cancel a Pick 2 or Pick 4 aimed at you\n✨ Kofi — double KSL reward when winning with SOL CARD\n🌟 Nefertari — change the suit without playing SOL CARD',
+    text: 'Each character has a unique ABILITY you can use ONCE per game:\n\n👑 Okonkwo — play 2 same-value cards at once\n🔮 Amara — peek at the top 3 deck cards\n🦊 Zara — cancel a Pick 2 or Pick 3 aimed at you\n✨ Kofi — double KSL reward when winning with SOL CARD\n🌟 Nefertari — change the suit without playing SOL CARD',
     highlight: 'character',
     action: null,
   },
@@ -232,12 +232,12 @@ export function TutorialScreen() {
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
               <div style={{ display:'flex', gap:6, alignItems:'center', marginBottom:8 }}>
                 <div style={{ fontFamily:'var(--font-display)', fontSize:11, color:'rgba(245,230,200,0.4)', letterSpacing:'0.12em' }}>TOP CARD:</div>
-                <GameCard card={{ id:'top2', suit:'bead', value:'5', special:'pick4' }} size="sm" />
+                <GameCard card={{ id:'top2', suit:'bead', value:'5', special:'pick3' }} size="sm" />
               </div>
               <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.4)', letterSpacing:'0.12em', marginBottom:4 }}>YOUR HAND — tap the matching card:</div>
               <div style={{ display:'flex', gap:8 }}>
                 {([
-                  { id:'d1', suit:'amole' as CardSuit, value:'5' as const, special:'pick4' as const },
+                  { id:'d1', suit:'amole' as CardSuit, value:'5' as const, special:'pick3' as const },
                   { id:'d2', suit:'manilla' as CardSuit, value:'9' as const },
                   { id:'d3', suit:'cowrie' as CardSuit, value:'3' as const },
                 ] as any[]).map((card: any) => (
@@ -257,7 +257,7 @@ export function TutorialScreen() {
               <GameCard card={{ id:'special-demo', ...step.demoCard } as any} size="lg" />
               <div style={{ padding:'10px 20px', borderRadius:10, background:'rgba(232,184,75,0.1)', border:'1px solid rgba(232,184,75,0.25)', fontFamily:'var(--font-display)', fontSize:12, fontWeight:700, color:'#E8B84B', letterSpacing:'0.06em', textAlign:'center' }}>
                 {step.demoCard.special === 'pick2' && '⚠ Next player draws 2 cards'}
-                {step.demoCard.special === 'pick4' && '⚠ Next player draws 4 cards'}
+                {step.demoCard.special === 'pick3' && '⚠ Next player draws 3 cards'}
                 {step.demoCard.special === 'general_market' && '⚠ Everyone else draws 1 card'}
                 {step.demoCard.special === 'hold_on' && '⚠ Next player loses their turn'}
                 {step.demoCard.special === 'suspension' && '⚠ Next player skips their turn'}

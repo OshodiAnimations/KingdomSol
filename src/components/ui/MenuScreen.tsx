@@ -11,7 +11,7 @@ const FLOAT_CARDS: Card[] = [
   { id:'f2', suit:'manilla', value:'7' },
   { id:'f3', suit:'spearhead', value:'2', special:'pick2' },
   { id:'f4', suit:'bead', value:'14', special:'general_market' },
-  { id:'f5', suit:'amole', value:'5', special:'pick4' },
+  { id:'f5', suit:'amole', value:'5', special:'pick3' },
   { id:'f6', suit:'cowrie', value:'8', special:'suspension' },
   { id:'f7', suit:'manilla', value:'11' },
   { id:'f8', suit:'bead', value:'3' },
