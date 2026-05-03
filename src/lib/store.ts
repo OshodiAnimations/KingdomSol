@@ -209,8 +209,9 @@ function canPlay(card:Card,topCard:Card,currentSuit:CardSuit|null,pendingPick?:n
   if(card.value==='WHOT')return true;
   // When a pick penalty is active, ONLY the exact counter card can be played
   if(pendingPick&&pendingPick>0){
-    if(pendingSpecial==='pick2') return card.special==='pick2'; // only another 2 cancels
-    if(pendingSpecial==='pick3') return card.special==='pick3'; // only another 5 cancels
+    if(pendingSpecial==='pick2') return card.special==='pick2';
+    if(pendingSpecial==='pick3') return card.special==='pick3';
+    if(pendingSpecial==='general_market') return card.special==='general_market'; // only another 14 cancels
   }
   const s=currentSuit||topCard.suit;
   return card.suit===s||card.value===topCard.value;
@@ -528,12 +529,15 @@ export const useGameStore = create<GameState>()(
         let newPendingSpecial:string|null=pendingSpecial;
         let ns:CardSuit|null=card.value!=='WHOT'?card.suit:currentSuit;
         if(card.special==='pick2'){
-          if(pendingSpecial==='pick2'){np=0;newPendingSpecial=null;} // cancel — both draw nothing
+          if(pendingSpecial==='pick2'){np=0;newPendingSpecial=null;} // counter cancels
           else{np=2;newPendingSpecial='pick2';}
         } else if(card.special==='pick3'){
-          if(pendingSpecial==='pick3'){np=0;newPendingSpecial=null;} // cancel
+          if(pendingSpecial==='pick3'){np=0;newPendingSpecial=null;} // counter cancels
           else{np=3;newPendingSpecial='pick3';}
-        } else if(card.special==='general_market'){np+=1;}
+        } else if(card.special==='general_market'){
+          // General Market: always forces ALL players to draw 1 — no counter
+          np=1;newPendingSpecial='general_market';
+        }
         const newPile=[...pile,card];
         const myId=typeof window!=='undefined'?localStorage.getItem('kingdomsol-pid')||'human':'human';
         const ev:CardPlayEvent={playerName:human.name,playerId:myId,card,timestamp:Date.now()};
@@ -650,6 +654,7 @@ export const useGameStore = create<GameState>()(
             const bps=ns.pendingSpecial;
         if(card.special==='pick2'){if(bps==='pick2'){np=0;}else{np=2;}}
         else if(card.special==='pick3'){if(bps==='pick3'){np=0;}else{np=3;}}
+        else if(card.special==='general_market'){np=1;} // always draw 1, no cancel
             if(card.special==='hold_on'||card.special==='suspension')ni=((ni+ns.direction)+pc.length)%pc.length;
             const ev:CardPlayEvent={playerName:bc.name,playerId:bc.id,card,timestamp:Date.now()};
             if(bc.hand.length===0){
@@ -659,7 +664,7 @@ export const useGameStore = create<GameState>()(
               return;
             }
             // Bot WHOT: advance turn immediately with chosen suit, no pending state
-            const newBotSpecial=card.special==='pick2'?(bps==='pick2'?null:'pick2'):card.special==='pick3'?(bps==='pick3'?null:'pick3'):null;
+            const newBotSpecial=card.special==='pick2'?(bps==='pick2'?null:'pick2'):card.special==='pick3'?(bps==='pick3'?null:'pick3'):card.special==='general_market'?'general_market':null;
             set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,
               currentPlayerIndex:ni,pendingPick:np,pendingSpecial:newBotSpecial,pendingNextPlayer:null,lastPlayEvent:ev});
           }else{
