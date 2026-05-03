@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore, CHARACTERS } from '@/lib/store';
 import { supabase, getPlayerId, SharedGameState, leaveRoom } from '@/lib/supabase';
 import type { Card, CardSuit, Player } from '@/lib/store';
@@ -7,114 +7,138 @@ import type { Card, CardSuit, Player } from '@/lib/store';
 export function useMultiplayerSync() {
   const gameMode = useGameStore(s => s.gameMode);
   const inviteCode = useGameStore(s => s.inviteCode);
-  const myPlayerIdRef = useRef(getPlayerId());
-  const lastAppliedRef = useRef<string>('');
+  const myPlayerIdRef = useRef<string>('');
+  const lastAppliedPileRef = useRef<number>(-1);
+  const lastAppliedTurnRef = useRef<number>(-1);
+  const lastAppliedWinnerRef = useRef<string>('');
   const applyingRef = useRef(false);
+  const applyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Core: apply incoming shared state ──────────────────────────────────────
-  function applyIncomingState(shared: SharedGameState) {
-    const stateKey = `${shared.currentPlayerIndex}-${shared.pile.length}-${shared.winner || ''}-${shared.currentSuit}`;
-    if (stateKey === lastAppliedRef.current) return;
+  // Always get fresh playerId
+  const getMyId = useCallback(() => {
+    if (typeof window === 'undefined') return '';
+    const id = localStorage.getItem('kingdomsol-player-id') || '';
+    myPlayerIdRef.current = id;
+    return id;
+  }, []);
+
+  // ── Core apply function ───────────────────────────────────────────────────
+  const applyIncomingState = useCallback((shared: SharedGameState) => {
+    // Safety: always release applyingRef after 2 seconds max
     if (applyingRef.current) return;
+
+    // Deduplicate: only apply if something meaningful changed
+    const pileChanged = shared.pile.length !== lastAppliedPileRef.current;
+    const turnChanged = shared.currentPlayerIndex !== lastAppliedTurnRef.current;
+    const winnerChanged = (shared.winner || '') !== lastAppliedWinnerRef.current;
+
+    if (!pileChanged && !turnChanged && !winnerChanged) return;
+
     applyingRef.current = true;
-
-    // Always re-read from localStorage to get accurate playerId (never stale)
-    const myPlayerId = typeof window !== 'undefined'
-      ? localStorage.getItem('kingdomsol-player-id') || myPlayerIdRef.current
-      : myPlayerIdRef.current;
-    myPlayerIdRef.current = myPlayerId; // keep ref in sync
-
-    const state = useGameStore.getState();
-    const myIndex = shared.playerOrder.indexOf(myPlayerId);
-    if (myIndex === -1) {
-      console.warn('[KSol] My playerId not found in playerOrder', myPlayerId, shared.playerOrder);
+    // Safety release — never stay locked more than 1 second
+    if (applyTimeoutRef.current) clearTimeout(applyTimeoutRef.current);
+    applyTimeoutRef.current = setTimeout(() => {
       applyingRef.current = false;
-      return;
+    }, 1000);
+
+    try {
+      const myPlayerId = getMyId();
+      if (!myPlayerId) { applyingRef.current = false; return; }
+
+      const state = useGameStore.getState();
+      const myIndex = shared.playerOrder.indexOf(myPlayerId);
+
+      if (myIndex === -1) {
+        console.warn('[KSol] My ID not in playerOrder:', myPlayerId, shared.playerOrder);
+        applyingRef.current = false;
+        return;
+      }
+
+      // Update dedup refs
+      lastAppliedPileRef.current = shared.pile.length;
+      lastAppliedTurnRef.current = shared.currentPlayerIndex;
+      lastAppliedWinnerRef.current = shared.winner || '';
+
+      // Build player list with correct names
+      const updatedPlayers: Player[] = shared.playerOrder.map((pid, idx) => {
+        const existing = state.players.find(p => p.id === pid);
+        const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
+        return {
+          id: pid,
+          name: shared.playerNames?.[pid] || existing?.name || `Player ${idx + 1}`,
+          avatar: existing?.avatar || char.icon,
+          character: existing?.character || char.key,
+          hand: shared.hands[pid] || [],
+          xp: existing?.xp || 0,
+          level: existing?.level || 1,
+          solBalance: existing?.solBalance || 0,
+          isBot: false,
+          abilityUsed: existing?.abilityUsed || false,
+        };
+      });
+
+      // Resolve winner
+      const winner = shared.winner
+        ? updatedPlayers.find(p => p.id === shared.winner) || {
+            id: shared.winner,
+            name: shared.playerNames?.[shared.winner] || 'Winner',
+            avatar: '👑', character: 'okonkwo' as const,
+            hand: [], xp: 0, level: 1, solBalance: 0, isBot: false, abilityUsed: false,
+          }
+        : null;
+
+      // Apply state — single atomic update
+      useGameStore.setState({
+        players: updatedPlayers,
+        pile: shared.pile as Card[],
+        topCard: shared.topCard as Card,
+        currentSuit: shared.currentSuit as CardSuit,
+        currentPlayerIndex: shared.currentPlayerIndex,
+        humanPlayerIndex: myIndex,
+        direction: shared.direction,
+        pendingPick: shared.pendingPick,
+        pendingSpecial: (shared as any).pendingSpecial || null,
+        deck: shared.deck as Card[],
+        winner,
+        selectedCardIds: [],
+        // Don't overwrite pendingNextPlayer — it's local only
+      });
+
+      // SOL CARD: if I played it and suit not yet chosen
+      if (shared.suitPendingPlayerId === myPlayerId && !winner) {
+        const currentIdx = shared.currentPlayerIndex;
+        const dir = shared.direction || 1;
+        const ni = ((currentIdx + dir) + shared.playerOrder.length) % shared.playerOrder.length;
+        useGameStore.setState({ pendingNextPlayer: ni });
+      } else if (!shared.suitPendingPlayerId) {
+        useGameStore.setState({ pendingNextPlayer: null });
+      }
+
+      // Winner arrived via sync
+      if (winner && !state.winner) {
+        setTimeout(() => {
+          const s = useGameStore.getState();
+          if (!s.winner) useGameStore.setState({ winner });
+        }, 200);
+      }
+
+    } catch (err) {
+      console.error('[KSol] applyIncomingState error:', err);
+    } finally {
+      applyingRef.current = false;
+      if (applyTimeoutRef.current) {
+        clearTimeout(applyTimeoutRef.current);
+        applyTimeoutRef.current = null;
+      }
     }
+  }, [getMyId]);
 
-    lastAppliedRef.current = stateKey;
-
-    const updatedPlayers: Player[] = shared.playerOrder.map((pid, idx) => {
-      const existing = state.players.find(p => p.id === pid);
-      const char = CHARACTERS.find(c => c.key === existing?.character) || CHARACTERS[0];
-      return {
-        id: pid,
-        name: shared.playerNames?.[pid] || existing?.name || `Player ${idx + 1}`,
-        avatar: existing?.avatar || char.icon,
-        character: existing?.character || char.key,
-        hand: shared.hands[pid] || [],
-        xp: existing?.xp || 0,
-        level: existing?.level || 1,
-        solBalance: existing?.solBalance || 0,
-        isBot: false,
-        abilityUsed: existing?.abilityUsed || false,
-      };
-    });
-
-    // Fix: winner lookup — always resolve to full player object
-    const winner = shared.winner
-      ? updatedPlayers.find(p => p.id === shared.winner) || {
-          id: shared.winner,
-          name: shared.playerNames?.[shared.winner] || 'Winner',
-          avatar: '👑', character: 'okonkwo' as const,
-          hand: [], xp: 0, level: 1, solBalance: 0, isBot: false, abilityUsed: false,
-        }
-      : null;
-
-    // Fix SOL CARD: don't overwrite suit selector state if it's currently open
-    // Only update currentSuit from shared state, don't hide local UI
-    const currentState = useGameStore.getState();
-
-    useGameStore.setState({
-      players: updatedPlayers,
-      pile: shared.pile as Card[],
-      topCard: shared.topCard as Card,
-      currentSuit: shared.currentSuit as CardSuit,
-      currentPlayerIndex: shared.currentPlayerIndex,
-      humanPlayerIndex: myIndex,
-      direction: shared.direction,
-      pendingPick: shared.pendingPick,
-      deck: shared.deck as Card[],
-      winner,
-      selectedCardIds: [],
-    });
-
-    // Fix 2 & 3: If winner arrived via sync, show win/loss screen immediately
-    if (winner && !currentState.winner) {
-      setTimeout(() => {
-        // Trigger win modal via existing winner state being set above
-        useGameStore.setState(s => ({ ...s })); // force re-render
-      }, 100);
-    }
-
-    // SOL CARD multiplayer: if suitPendingPlayerId is me, set pendingNextPlayer locally
-    // so the selector shows ONLY on my screen
-    if (shared.suitPendingPlayerId === myPlayerId && !shared.winner) {
-      // Find what my next player index would be after suit is chosen
-      // In multiplayer, currentPlayerIndex is still on the WHOT player
-      // After suit chosen, turn advances — we store this locally
-      const currentIdx = shared.currentPlayerIndex;
-      const direction = shared.direction || 1;
-      const ni = ((currentIdx + direction) + shared.playerOrder.length) % shared.playerOrder.length;
-      useGameStore.setState({ pendingNextPlayer: ni });
-    } else if (shared.suitPendingPlayerId === null || shared.suitPendingPlayerId === undefined) {
-      // No pending suit — clear local pendingNextPlayer
-      useGameStore.setState({ pendingNextPlayer: null });
-    }
-
-    applyingRef.current = false;
-  }
-
-  // ── Handle room update (game state changes, winner, status) ───────────────
-  function handleRoomUpdate(room: any) {
-    const myPlayerId = myPlayerIdRef.current;
-
+  // ── Handle room update ─────────────────────────────────────────────────────
+  const handleRoomUpdate = useCallback((room: any) => {
     if (room?.status === 'finished') {
       const shared = room.game_state as SharedGameState | null;
       if (shared?.winner) {
-        // Apply final state — this sets winner in store which triggers win/loss screen
         applyIncomingState(shared);
-        // Force winner state to be set with correct player object
         setTimeout(() => {
           const state = useGameStore.getState();
           if (!state.winner && shared.winner) {
@@ -126,30 +150,29 @@ export function useMultiplayerSync() {
             };
             useGameStore.setState({ winner: winnerPlayer });
           }
-        }, 200);
+        }, 300);
       } else {
         useGameStore.setState({
-          notification: { message: 'Game ended — a player disconnected.', type: 'info' },
+          notification: { message: 'Game ended.', type: 'info' },
           screen: 'menu',
         });
       }
       return;
     }
-
     if (room?.game_state) {
       applyIncomingState(room.game_state as SharedGameState);
     }
-  }
+  }, [applyIncomingState]);
 
-  // ── Handle player disconnect from room_players table ──────────────────────
-  async function handleDisconnect(disconnectedId: string) {
-    const myPlayerId = myPlayerIdRef.current;
+  // ── Handle disconnect ──────────────────────────────────────────────────────
+  const handleDisconnect = useCallback(async (disconnectedId: string) => {
+    const myPlayerId = getMyId();
     if (disconnectedId === myPlayerId) return;
 
     const state = useGameStore.getState();
     if (!state.isGameStarted || state.winner) return;
 
-    // Get current active players from Supabase (most accurate)
+    // Get remaining players from Supabase
     const { data: activePlayers } = await supabase
       .from('room_players')
       .select('player_id, player_name, joined_at')
@@ -158,54 +181,45 @@ export function useMultiplayerSync() {
 
     const remaining = (activePlayers || []).map((p: any) => p.player_id);
 
-    if (remaining.length === 0) {
-      // Everyone left
-      await supabase.from('rooms').update({ status: 'finished', updated_at: new Date().toISOString() }).eq('code', inviteCode!);
-      useGameStore.setState({ screen: 'menu' });
-      return;
-    }
-
     if (remaining.length === 1 && remaining[0] === myPlayerId) {
-      // Fix 1: I am the LAST player remaining — I win immediately
+      // I'm last — I win
       const myPlayer = state.players.find(p => p.id === myPlayerId)
         || state.players[state.humanPlayerIndex]
         || state.players[0];
       if (!myPlayer) return;
 
-      // Set winner locally FIRST so win screen shows immediately
       useGameStore.setState({ winner: myPlayer });
 
-      // Build final winner state
       const winnerState: SharedGameState = {
-        pile: state.pile,
-        topCard: state.topCard,
+        pile: state.pile, topCard: state.topCard,
         currentSuit: state.currentSuit || 'cowrie',
         currentPlayerIndex: state.currentPlayerIndex,
-        direction: state.direction,
-        pendingPick: 0,
-        winner: myPlayerId,  // I win
+        direction: state.direction, pendingPick: 0,
+        winner: myPlayerId,
         hands: Object.fromEntries(state.players.map(p => [p.id, p.hand])),
         playerOrder: state.players.map(p => p.id),
         playerNames: Object.fromEntries(state.players.map(p => [p.id, p.name])),
-        deck: state.deck,
-        multiMode: state.multiMode || 'war',
-        stakeToken: state.stakeToken,
-        stakeAmount: state.stakeAmount,
+        deck: state.deck, multiMode: state.multiMode || 'war',
+        stakeToken: state.stakeToken, stakeAmount: state.stakeAmount,
       };
 
-      // Broadcast win immediately
       const { broadcastGameState } = await import('@/lib/supabase');
       await broadcastGameState(inviteCode!, winnerState);
-
-      // Mark room finished in Supabase
       await supabase.from('rooms')
         .update({ status: 'finished', game_state: winnerState, updated_at: new Date().toISOString() })
         .eq('code', inviteCode!);
-
-      return; // winner already set above
+      return;
     }
 
-    // 3+ players: remove disconnected player from order, continue game
+    if (remaining.length === 0) {
+      await supabase.from('rooms')
+        .update({ status: 'finished', updated_at: new Date().toISOString() })
+        .eq('code', inviteCode!);
+      useGameStore.setState({ screen: 'menu' });
+      return;
+    }
+
+    // 3+ players: remove disconnected, continue
     const newOrder = state.players.map(p => p.id).filter(id => remaining.includes(id));
     const newHands = Object.fromEntries(
       state.players.filter(p => remaining.includes(p.id)).map(p => [p.id, p.hand])
@@ -217,33 +231,26 @@ export function useMultiplayerSync() {
     if (newCurrentIdx >= newOrder.length) newCurrentIdx = 0;
 
     const continuedState: SharedGameState = {
-      pile: state.pile,
-      topCard: state.topCard,
+      pile: state.pile, topCard: state.topCard,
       currentSuit: state.currentSuit || 'cowrie',
-      currentPlayerIndex: newCurrentIdx,
-      direction: state.direction,
-      pendingPick: state.pendingPick,
-      winner: null,
-      hands: newHands,
-      playerOrder: newOrder,
-      playerNames: newNames,
-      deck: state.deck,
-      multiMode: state.multiMode || 'war',
-      stakeToken: state.stakeToken,
-      stakeAmount: state.stakeAmount,
+      currentPlayerIndex: newCurrentIdx, direction: state.direction,
+      pendingPick: state.pendingPick, winner: null,
+      hands: newHands, playerOrder: newOrder, playerNames: newNames,
+      deck: state.deck, multiMode: state.multiMode || 'war',
+      stakeToken: state.stakeToken, stakeAmount: state.stakeAmount,
     };
 
     const { broadcastGameState } = await import('@/lib/supabase');
     await broadcastGameState(inviteCode!, continuedState);
     applyIncomingState(continuedState);
-  }
+  }, [inviteCode, getMyId, applyIncomingState]);
 
-  // ── Realtime subscription ─────────────────────────────────────────────────
+  // ── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
     const channel = supabase
-      .channel(`mpsync:${inviteCode}:${myPlayerIdRef.current}`)
+      .channel(`mpsync:${inviteCode}:${Date.now()}`) // unique channel name prevents stale subscriptions
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -262,14 +269,15 @@ export function useMultiplayerSync() {
         if (disconnectedId) await handleDisconnect(disconnectedId);
       })
       .subscribe((status) => {
-        console.log('[KSol Sync]', status, inviteCode);
+        if (status === 'SUBSCRIBED') {
+          console.log('[KSol] Realtime connected for room', inviteCode);
+        }
       });
 
-    // Clean disconnect on tab close
     const handleUnload = async () => {
       const state = useGameStore.getState();
       if (state.gameMode === 'multiplayer' && inviteCode && state.isGameStarted) {
-        await leaveRoom(inviteCode, myPlayerIdRef.current);
+        await leaveRoom(inviteCode, getMyId());
       }
     };
     window.addEventListener('beforeunload', handleUnload);
@@ -277,15 +285,20 @@ export function useMultiplayerSync() {
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener('beforeunload', handleUnload);
+      if (applyTimeoutRef.current) clearTimeout(applyTimeoutRef.current);
     };
-  }, [gameMode, inviteCode]);
+  }, [gameMode, inviteCode, handleRoomUpdate, handleDisconnect, getMyId]);
 
-  // ── Heartbeat fallback every 5 seconds ───────────────────────────────────
+  // ── Heartbeat — conservative, only apply if genuinely behind ─────────────
   useEffect(() => {
     if (gameMode !== 'multiplayer' || !inviteCode) return;
 
     const interval = setInterval(async () => {
+      // Skip if currently applying or game is over
       if (applyingRef.current) return;
+      const state = useGameStore.getState();
+      if (state.winner) return;
+
       try {
         const { data } = await supabase
           .from('rooms')
@@ -298,18 +311,26 @@ export function useMultiplayerSync() {
           handleRoomUpdate({ status: 'finished', game_state: data.game_state });
           return;
         }
-        if (data.game_state) {
-          const shared = data.game_state as SharedGameState;
-          const state = useGameStore.getState();
-          if (shared.currentPlayerIndex !== state.currentPlayerIndex ||
-              shared.pile.length !== state.pile.length ||
-              shared.winner !== (state.winner?.id || null)) {
-            applyIncomingState(shared);
-          }
+
+        if (!data.game_state) return;
+        const shared = data.game_state as SharedGameState;
+
+        // ONLY apply heartbeat if we're genuinely behind
+        // Compare by both pile length AND currentPlayerIndex
+        const pileOutOfSync = shared.pile.length !== state.pile.length;
+        const turnOutOfSync = shared.currentPlayerIndex !== state.currentPlayerIndex;
+        const winnerOutOfSync = !!shared.winner && !state.winner;
+
+        if (pileOutOfSync || winnerOutOfSync || (turnOutOfSync && pileOutOfSync)) {
+          console.log('[KSol] Heartbeat resync: pile', state.pile.length, '->', shared.pile.length);
+          applyIncomingState(shared);
         }
-      } catch {}
-    }, 5000);
+        // Note: turnOutOfSync alone without pile change = normal race, don't resync
+      } catch (err) {
+        // Silent — realtime should cover this
+      }
+    }, 6000); // 6 seconds — slower heartbeat = less shake
 
     return () => clearInterval(interval);
-  }, [gameMode, inviteCode]);
+  }, [gameMode, inviteCode, handleRoomUpdate, applyIncomingState]);
 }

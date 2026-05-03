@@ -329,7 +329,7 @@ export function GameBoard() {
           <div style={{ fontFamily:'var(--font-display)', fontSize:11, fontWeight:700, color:'rgba(245,230,200,0.5)' }}>{deck.length} left</div>
           {pendingPick > 0 && (
             <div style={{ padding:'3px 10px', borderRadius:5, background:'rgba(255,80,50,0.2)', border:'1px solid rgba(255,80,50,0.4)', fontFamily:'var(--font-display)', fontSize:11, fontWeight:900, color:'#FF6432' }}>
-              {pendingSpecial === 'general_market' ? 'GENERAL MARKET — draw 1 card to continue' : `PICK ${pendingPick}! ${pendingSpecial === 'pick2' ? '(counter: play a 2)' : '(counter: play a 5)'}`}
+              PICK {pendingPick}! {pendingSpecial === 'pick2' ? '(counter: play a 2)' : pendingSpecial === 'pick3' ? '(counter: play a 5)' : ''}
             </div>
           )}
         </div>
@@ -422,7 +422,7 @@ export function GameBoard() {
           {isMyTurn && !winner && (
             <>
               <button className="btn-secondary" style={{ fontSize:12, padding:'9px 22px', fontWeight:900, letterSpacing:'0.08em' }} onClick={handleDraw}>
-                {pendingPick>0 ? `DRAW ${pendingPick} CARDS (or counter)` : 'DRAW CARD'}
+                {pendingPick>0 ? 'DRAW ' + pendingPick + ' CARDS' + (pendingSpecial==='pick2'||pendingSpecial==='pick3'?' (or counter)':'') : 'DRAW CARD'}
               </button>
               {selectedCardIds.length > 0 && (
                 <button className="btn-primary" style={{ fontSize:12, padding:'9px 26px', fontWeight:900, letterSpacing:'0.08em' }}

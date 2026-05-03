@@ -246,6 +246,7 @@ async function broadcastIfMultiplayer(get: () => GameState) {
       stakeToken: s.stakeToken,
       stakeAmount: s.stakeAmount,
       lastPlayerId: s.lastPlayEvent?.playerId,
+      pendingSpecial: s.pendingSpecial,
       // Tell other clients WHO played SOL CARD (so only they show selector)
       suitPendingPlayerId: s.pendingNextPlayer !== null ? s.lastPlayEvent?.playerId || null : null,
       // DO NOT broadcast pendingNextPlayer - it's a local index, meaningless to others
@@ -535,8 +536,20 @@ export const useGameStore = create<GameState>()(
           if(pendingSpecial==='pick3'){np=0;newPendingSpecial=null;} // counter cancels
           else{np=3;newPendingSpecial='pick3';}
         } else if(card.special==='general_market'){
-          // General Market: always forces ALL players to draw 1 — no counter
-          np=1;newPendingSpecial='general_market';
+          // General Market: immediately add 1 card to ALL other players hands right now
+          // No pendingPick needed — handled immediately in this same setState call
+          const{deck:currentDeck}=get();
+          let deckCopy=[...currentDeck];
+          for(let i=0;i<pc.length;i++){
+            if(i===humanPlayerIndex) continue; // don't give card to who played it
+            if(deckCopy.length===0) deckCopy=createDeck();
+            pc[i].hand.push(deckCopy[0]);
+            deckCopy=deckCopy.slice(1);
+          }
+          // Update deck in state, no pendingPick
+          np=0; newPendingSpecial=null;
+          // We need to set deck too — handle via a separate set after this block
+          set({deck:deckCopy}); // update deck immediately
         }
         const newPile=[...pile,card];
         const myId=typeof window!=='undefined'?localStorage.getItem('kingdomsol-pid')||'human':'human';
@@ -654,7 +667,19 @@ export const useGameStore = create<GameState>()(
             const bps=ns.pendingSpecial;
         if(card.special==='pick2'){if(bps==='pick2'){np=0;}else{np=2;}}
         else if(card.special==='pick3'){if(bps==='pick3'){np=0;}else{np=3;}}
-        else if(card.special==='general_market'){np=1;} // always draw 1, no cancel
+        else if(card.special==='general_market'){
+          // Immediately deal 1 card to all other players
+          const{deck:bd}=get();
+          let bdCopy=[...bd];
+          for(let i=0;i<pc.length;i++){
+            if(i===ci) continue;
+            if(bdCopy.length===0) bdCopy=createDeck();
+            pc[i].hand.push(bdCopy[0]);
+            bdCopy=bdCopy.slice(1);
+          }
+          set({deck:bdCopy});
+          np=0;
+        }
             if(card.special==='hold_on'||card.special==='suspension')ni=((ni+ns.direction)+pc.length)%pc.length;
             const ev:CardPlayEvent={playerName:bc.name,playerId:bc.id,card,timestamp:Date.now()};
             if(bc.hand.length===0){
@@ -664,7 +689,7 @@ export const useGameStore = create<GameState>()(
               return;
             }
             // Bot WHOT: advance turn immediately with chosen suit, no pending state
-            const newBotSpecial=card.special==='pick2'?(bps==='pick2'?null:'pick2'):card.special==='pick3'?(bps==='pick3'?null:'pick3'):card.special==='general_market'?'general_market':null;
+            const newBotSpecial=card.special==='pick2'?(bps==='pick2'?null:'pick2'):card.special==='pick3'?(bps==='pick3'?null:'pick3'):null;
             set({players:pc,pile:[...ns.pile,card],topCard:card,currentSuit:nsuit,
               currentPlayerIndex:ni,pendingPick:np,pendingSpecial:newBotSpecial,pendingNextPlayer:null,lastPlayEvent:ev});
           }else{

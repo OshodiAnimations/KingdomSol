@@ -60,6 +60,8 @@ export interface SharedGameState {
   playerOrder: string[];
   // Last player to play a card (for SOL CARD suit selector)
   lastPlayerId?: string;
+  // Active penalty type so all clients enforce same counter rules
+  pendingSpecial?: string | null;
   // When set: this player ID played SOL CARD and needs to pick a suit
   // Only the client whose playerId matches this shows the suit selector
   suitPendingPlayerId?: string | null;
