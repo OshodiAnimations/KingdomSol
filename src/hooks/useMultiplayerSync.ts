@@ -18,10 +18,19 @@ export function useMultiplayerSync() {
     if (applyingRef.current) return;
     applyingRef.current = true;
 
-    const myPlayerId = myPlayerIdRef.current;
+    // Always re-read from localStorage to get accurate playerId (never stale)
+    const myPlayerId = typeof window !== 'undefined'
+      ? localStorage.getItem('kingdomsol-player-id') || myPlayerIdRef.current
+      : myPlayerIdRef.current;
+    myPlayerIdRef.current = myPlayerId; // keep ref in sync
+
     const state = useGameStore.getState();
     const myIndex = shared.playerOrder.indexOf(myPlayerId);
-    if (myIndex === -1) { applyingRef.current = false; return; }
+    if (myIndex === -1) {
+      console.warn('[KSol] My playerId not found in playerOrder', myPlayerId, shared.playerOrder);
+      applyingRef.current = false;
+      return;
+    }
 
     lastAppliedRef.current = stateKey;
 

@@ -502,11 +502,11 @@ export const useGameStore = create<GameState>()(
       playCard:(cardId)=>{
         const{players,humanPlayerIndex,currentPlayerIndex,pile,topCard,currentSuit,pendingPick,direction,gameMode}=get();
         if(currentPlayerIndex!==humanPlayerIndex)return;
-        // In multiplayer: extra guard - check it's actually our turn in the shared order
+        // In multiplayer: verify by player ID that it's genuinely our turn
         if(gameMode==='multiplayer'){
-          const myPlayer=players[humanPlayerIndex];
+          const myPlayerId=typeof window!=='undefined'?localStorage.getItem('kingdomsol-player-id')||'':'';
           const currentPlayer=players[currentPlayerIndex];
-          if(!myPlayer||!currentPlayer||myPlayer.id!==currentPlayer.id)return;
+          if(myPlayerId&&currentPlayer&&currentPlayer.id!==myPlayerId)return;
         }
         const pc=players.map(p=>({...p,hand:[...p.hand]}));
         const human=pc[humanPlayerIndex];
@@ -529,16 +529,18 @@ export const useGameStore = create<GameState>()(
           if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),50);
           return;
         }
-        let ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
+        // CRITICAL: always use currentPlayerIndex (shared) to advance turns
+        // humanPlayerIndex is local UI only — using it breaks multiplayer turn chain
+        const turnBase = currentPlayerIndex; // who just played
+        let ni=((turnBase+direction)+pc.length)%pc.length;
         if(card.special==='hold_on'||card.special==='suspension')ni=((ni+direction)+pc.length)%pc.length;
         if(card.value==='WHOT'){
-          // Hold at current player, store next index in state for changeSuit to consume
           set({
-            players:pc, pile:newPile, topCard:card, currentSuit:currentSuit, // keep current suit until chosen
+            players:pc, pile:newPile, topCard:card, currentSuit:currentSuit,
             selectedCardIds:[], pendingPick:np, lastPlayEvent:ev,
             notification:{message:'SOL CARD! Choose a suit',type:'info'},
-            currentPlayerIndex:humanPlayerIndex,  // stay on human until suit chosen
-            pendingNextPlayer:ni,                 // advance here after suit chosen
+            currentPlayerIndex:turnBase,  // stay on current player until suit chosen
+            pendingNextPlayer:ni,         // advance here after suit chosen
           });
           if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
           return;
@@ -553,6 +555,8 @@ export const useGameStore = create<GameState>()(
         const{players,humanPlayerIndex,currentPlayerIndex,gameMode,pendingNextPlayer,direction}=get();
         // Use pendingNextPlayer (locally computed correct next index)
         // Fall back to advancing from current position
+        // pendingNextPlayer was computed from currentPlayerIndex when WHOT was played
+        // This is correct for both solo and multiplayer
         const ni = (pendingNextPlayer !== null && pendingNextPlayer !== undefined)
           ? pendingNextPlayer
           : ((currentPlayerIndex+direction)+players.length)%players.length;
@@ -568,11 +572,11 @@ export const useGameStore = create<GameState>()(
       drawCard:()=>{
         const{deck,players,humanPlayerIndex,currentPlayerIndex,direction,pendingPick,gameMode}=get();
         if(currentPlayerIndex!==humanPlayerIndex)return;
-        // Multiplayer strict guard
+        // In multiplayer: verify by player ID
         if(gameMode==='multiplayer'){
-          const myPlayer=players[humanPlayerIndex];
+          const myPlayerId=typeof window!=='undefined'?localStorage.getItem('kingdomsol-player-id')||'':'';
           const currentPlayer=players[currentPlayerIndex];
-          if(!myPlayer||!currentPlayer||myPlayer.id!==currentPlayer.id)return;
+          if(myPlayerId&&currentPlayer&&currentPlayer.id!==myPlayerId)return;
         }
         // Auto-reshuffle: if deck is empty, create a fresh shuffled deck from played pile (keep top card)
         let activeDeck = deck;
@@ -591,7 +595,8 @@ export const useGameStore = create<GameState>()(
         const count=pendingPick>0?pendingPick:1;
         const pc=players.map(p=>({...p,hand:[...p.hand]}));
         pc[humanPlayerIndex].hand.push(...activeDeck.slice(0,count));
-        const ni=((humanPlayerIndex+direction)+pc.length)%pc.length;
+        // Use currentPlayerIndex (shared) not humanPlayerIndex (local)
+        const ni=((currentPlayerIndex+direction)+pc.length)%pc.length;
         set({players:pc,deck:activeDeck.slice(count),pendingPick:0,currentPlayerIndex:ni,selectedCardIds:[]});
         if(ni!==humanPlayerIndex&&get().gameMode!=='multiplayer')setTimeout(()=>get().botTurn(),1200);
         else if(get().gameMode==='multiplayer') setTimeout(()=>broadcastIfMultiplayer(get),100);
