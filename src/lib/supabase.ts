@@ -276,6 +276,62 @@ export async function leaveRoom(code: string, playerId: string) {
 // Called when a player disconnects mid-game
 // If 2 players: game stops, other player wins
 // If 3+ players: last standing player wins all stakes
+// ── Profile Cloud Sync ───────────────────────────────────────────────────────
+
+export interface CloudProfile {
+  player_id: string;
+  name: string;
+  character_key: string;
+  avatar_symbol: string;
+  avatar_url?: string | null;
+  xp: number;
+  level: number;
+  games_played: number;
+  games_won: number;
+  win_streak: number;
+  best_streak: number;
+  cards_played: number;
+  ksl_balance: number;
+  ksl_spent: number;
+  sol_earned: number;
+  multiplayer_games_played: number;
+  wallet_address?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Save profile to Supabase — called on create and after every game
+export async function saveProfileToCloud(profile: CloudProfile): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        ...profile,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'player_id' });
+    if (error) { console.error('saveProfileToCloud error:', error); return false; }
+    return true;
+  } catch (e) {
+    console.error('saveProfileToCloud exception:', e);
+    return false;
+  }
+}
+
+// Load profile from Supabase by playerId
+export async function loadProfileFromCloud(playerId: string): Promise<CloudProfile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('player_id', playerId)
+      .single();
+    if (error || !data) return null;
+    return data as CloudProfile;
+  } catch (e) {
+    return null;
+  }
+}
+
 // ── Player Stats (global leaderboard) ────────────────────────────────────────
 
 export interface PlayerStatRow {

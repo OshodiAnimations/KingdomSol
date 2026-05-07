@@ -6,6 +6,7 @@ import { WalletChip } from '@/components/wallet/WalletChip';
 import { XPBar } from '@/components/ui/XPBar';
 import { broadcastGameState, getPlayerId } from '@/lib/supabase';
 import { useMultiplayerSync } from '@/hooks/useMultiplayerSync';
+import { VideoChat } from '@/components/video/VideoChat';
 
 const TURN_SECONDS = 25;
 
@@ -33,6 +34,7 @@ export function GameBoard() {
   const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
   const [showSuitSelector, setShowSuitSelector] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(false);
   const [pendingWhotCard, setPendingWhotCard] = useState<string | null>(null);
   const [cardPops, setCardPops] = useState<CardPopEvent[]>([]);
   const [drawPop, setDrawPop] = useState<{ playerName: string; count: number } | null>(null);
@@ -284,6 +286,21 @@ export function GameBoard() {
 
         <WalletChip compact />
       </div>
+
+      {/* ── VIDEO CHAT — multiplayer only ── */}
+      {isMultiplayer && (
+        <div style={{ position:'relative', zIndex:15, padding:'8px 12px 4px', background:'rgba(13,10,8,0.5)', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+          <VideoChat
+            roomCode={inviteCode || ''}
+            playerName={humanPlayer?.name || 'Player'}
+            playerId={playerId}
+            players={players.map(p => ({ id: p.id, name: p.name, accentColor: '#9945FF' }))}
+            currentPlayerId={players[currentPlayerIndex]?.id || ''}
+            isEnabled={videoEnabled}
+            onToggle={() => setVideoEnabled(v => !v)}
+          />
+        </div>
+      )}
 
       {/* ── OPPONENTS ── */}
       <div style={{ position:'relative', zIndex:10, display:'flex', gap:10, padding:'10px 12px 6px', overflowX:'auto', flexWrap:'nowrap' as const, scrollbarWidth:'none' as const }}>

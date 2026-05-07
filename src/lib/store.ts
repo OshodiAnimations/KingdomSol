@@ -162,6 +162,7 @@ export interface GameState {
   botTurn: () => void;
   updateLeaderboard: () => void;
   setAvatar: (avatarUrl: string | null, avatarSymbol?: string) => void;
+  restoreProfileFromCloud: () => Promise<boolean>;
 }
 
 export const CHARACTERS: Character[] = [
@@ -286,6 +287,17 @@ export const useGameStore = create<GameState>()(
           avatarUrl:null,avatarSymbol:'👑'
         };
         set({profile,screen:'menu'});
+        // Immediately save to cloud so profile survives domain changes
+        import('@/lib/supabase').then(({saveProfileToCloud,getPlayerId})=>{
+          saveProfileToCloud({
+            player_id:getPlayerId(),
+            name,character_key:character,avatar_symbol:'👑',
+            xp:0,level:1,games_played:0,games_won:0,
+            win_streak:0,best_streak:0,cards_played:0,
+            ksl_balance:KSL_STARTING_BALANCE,ksl_spent:0,sol_earned:0,
+            multiplayer_games_played:0,
+          });
+        }).catch(()=>{});
       },
 
       topUpKSL:(usdcAmount)=>{
@@ -357,6 +369,28 @@ export const useGameStore = create<GameState>()(
 
         set({profile:updatedProfile});
         get().updateLeaderboard();
+        // Sync to cloud after every game
+        import('@/lib/supabase').then(({saveProfileToCloud,getPlayerId})=>{
+          const{wallet}=get();
+          saveProfileToCloud({
+            player_id:getPlayerId(),
+            name:updatedProfile.name,
+            character_key:updatedProfile.character,
+            avatar_symbol:updatedProfile.avatarSymbol||'👑',
+            avatar_url:updatedProfile.avatarUrl||null,
+            xp:newXp,level:newLevel,
+            games_played:updatedProfile.gamesPlayed,
+            games_won:updatedProfile.gamesWon,
+            win_streak:newStreak,
+            best_streak:updatedProfile.bestStreak,
+            cards_played:updatedProfile.cardsPlayed,
+            ksl_balance:updatedProfile.kslBalance,
+            ksl_spent:updatedProfile.kslSpent,
+            sol_earned:updatedProfile.solEarned||0,
+            multiplayer_games_played:updatedProfile.multiplayerGamesPlayed,
+            wallet_address:wallet?.address||null,
+          });
+        }).catch(()=>{});
 
         // Sync to Supabase global leaderboard
         import('@/lib/supabase').then(({upsertPlayerStats,getPlayerId})=>{
@@ -381,10 +415,57 @@ export const useGameStore = create<GameState>()(
         }).catch(()=>{});
       },
 
+      restoreProfileFromCloud:async()=>{
+        try{
+          const{loadProfileFromCloud,getPlayerId}=await import('@/lib/supabase');
+          const pid=getPlayerId();
+          const cloud=await loadProfileFromCloud(pid);
+          if(!cloud)return false;
+          const restoredProfile:PlayerProfile={
+            name:cloud.name,
+            character:cloud.character_key as CharacterKey,
+            gamesPlayed:cloud.games_played,
+            gamesWon:cloud.games_won,
+            xp:cloud.xp,
+            level:cloud.level,
+            solEarned:cloud.sol_earned||0,
+            cardsPlayed:cloud.cards_played,
+            winStreak:cloud.win_streak,
+            bestStreak:cloud.best_streak,
+            createdAt:cloud.created_at?new Date(cloud.created_at).getTime():Date.now(),
+            kslBalance:cloud.ksl_balance,
+            kslSpent:cloud.ksl_spent,
+            multiplayerGamesPlayed:cloud.multiplayer_games_played,
+            avatarUrl:cloud.avatar_url||null,
+            avatarSymbol:cloud.avatar_symbol||'👑',
+          };
+          set({profile:restoredProfile,screen:'menu'});
+          return true;
+        }catch(e){
+          console.error('restoreProfileFromCloud error:',e);
+          return false;
+        }
+      },
+
       setAvatar:(avatarUrl, avatarSymbol)=>{
         const{profile}=get();
         if(!profile)return;
-        set({profile:{...profile,avatarUrl:avatarUrl||null,avatarSymbol:avatarSymbol||profile.avatarSymbol}});
+        const updated={...profile,avatarUrl:avatarUrl||null,avatarSymbol:avatarSymbol||profile.avatarSymbol};
+        set({profile:updated});
+        // Sync avatar to cloud
+        import('@/lib/supabase').then(({saveProfileToCloud,getPlayerId})=>{
+          saveProfileToCloud({
+            player_id:getPlayerId(),
+            name:updated.name, character_key:updated.character,
+            avatar_symbol:updated.avatarSymbol||'👑', avatar_url:updated.avatarUrl||null,
+            xp:updated.xp, level:updated.level,
+            games_played:updated.gamesPlayed, games_won:updated.gamesWon,
+            win_streak:updated.winStreak, best_streak:updated.bestStreak,
+            cards_played:updated.cardsPlayed, ksl_balance:updated.kslBalance,
+            ksl_spent:updated.kslSpent, sol_earned:updated.solEarned||0,
+            multiplayer_games_played:updated.multiplayerGamesPlayed,
+          });
+        }).catch(()=>{});
       },
 
       updateLeaderboard:()=>{
@@ -747,6 +828,20 @@ export const useGameStore = create<GameState>()(
           showWalletModal:false,
           notification:{message:`${provider.charAt(0).toUpperCase()+provider.slice(1)} connected! (Devnet)`,type:'success'}
         });
+        // Sync wallet address to cloud profile
+        const{profile:wp}=get();
+        if(wp){
+          import('@/lib/supabase').then(({saveProfileToCloud,getPlayerId})=>{
+            saveProfileToCloud({
+              player_id:getPlayerId(), name:wp.name, character_key:wp.character,
+              avatar_symbol:wp.avatarSymbol||'👑', avatar_url:wp.avatarUrl||null,
+              xp:wp.xp, level:wp.level, games_played:wp.gamesPlayed, games_won:wp.gamesWon,
+              win_streak:wp.winStreak, best_streak:wp.bestStreak, cards_played:wp.cardsPlayed,
+              ksl_balance:wp.kslBalance, ksl_spent:wp.kslSpent, sol_earned:wp.solEarned||0,
+              multiplayer_games_played:wp.multiplayerGamesPlayed, wallet_address:addr,
+            });
+          }).catch(()=>{});
+        }
       },
 
       disconnectWallet:()=>{
