@@ -8,9 +8,10 @@
     "start": "next start",
     "lint": "next lint"
   },
-  "dependencies": { 
-"@supabase/supabase-js": "^2.39.0",
+  "dependencies": {
     "@solana/web3.js": "^1.91.8",
+    "@supabase/supabase-js": "^2.39.0",
+    "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.2.10",
     "next": "^14.2.3",
